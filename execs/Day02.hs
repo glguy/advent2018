@@ -35,7 +35,7 @@ part1 :: Ord a => [[a]] -> Int
 part1 inp = product (map exact [2,3])
   where
     cards = map cardinality inp
-    exact n = count (any (n ==)) cards
+    exact n = count (elem n) cards
 
 -- | Return the common elements between the two entries in the given list
 -- where all but one of the elements are equal.
