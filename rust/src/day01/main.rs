@@ -14,12 +14,7 @@ fn main() {
 fn get_input() -> Vec<i64> {
     let stdin = io::stdin();
     let handle = stdin.lock();
-
-    let mut v: Vec<i64> = vec![];
-    for x in handle.lines() {
-        let n = x.unwrap().parse().unwrap();
-        v.push(n);
-    }
+    let v = handle.lines().map(|line| line.unwrap().parse().unwrap()).collect();
     v
 }
 

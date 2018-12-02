@@ -12,11 +12,7 @@ fn main() {
 fn get_input() -> Vec<String> {
     let stdin = io::stdin();
     let handle = stdin.lock();
-
-    let mut v = vec![];
-    for x in handle.lines() {
-        v.push(x.unwrap());
-    }
+    let v = handle.lines().collect::<Result<_, _>>().unwrap();
     v
 }
 
@@ -29,11 +25,11 @@ fn cardinalities<F>(items: F) -> HashMap<F::Item, usize>
     counts
 }
 
-fn part1(input: &[String]) -> usize {
+fn part1<S: AsRef<str>>(input: &[S]) -> usize {
     let mut n2 = 0;
     let mut n3 = 0;
     for x in input {
-        let counts = cardinalities(x.chars());
+        let counts = cardinalities(x.as_ref().chars());
         let exact = |n| counts.values().find(|&&x| x == n).is_some();
         if exact(2) {
             n2 += 1
@@ -61,14 +57,31 @@ fn off_by_one(x: &str, y: &str) -> Option<String> {
     }
 }
 
-fn part2(input: &[String]) -> String {
+fn part2<S: AsRef<str>>(input: &[S]) -> String {
 
     for (i,x) in input.iter().enumerate() {
         for y in &input[i+1 ..] {
-            if let Some(shared) = off_by_one(x, y) {
+            if let Some(shared) = off_by_one(x.as_ref(), y.as_ref()) {
                 return shared
             }
         }
     }
     panic!("No solution to part 2")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_part1() {
+        let v = vec!["abcdef", "bababc", "abbcde", "abcccd", "aabcdd", "abcdee", "ababab"];
+        assert_eq!(part1(&v), 12);
+    }
+
+    #[test]
+    fn test_part2() {
+        let v = vec!["abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz"];
+        assert_eq!(part2(&v), "fgij");
+    }
 }
