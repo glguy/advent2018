@@ -1,0 +1,5 @@
+resolver: lts-12.20
+packages:
+- .
+extra-deps:
+- megaparsec-7.0.4

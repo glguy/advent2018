@@ -32,7 +32,6 @@ cabal.project.local
 cabal.sandbox.config
 codex.tags
 docs
-stack.yaml
 tags
 wiki
 wip
