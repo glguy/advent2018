@@ -1,6 +1,6 @@
-use std::io::{self, BufRead};
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::io::{self, BufRead};
 
 fn main() {
     let input = get_input();
@@ -17,7 +17,10 @@ fn get_input() -> Vec<String> {
 }
 
 fn cardinalities<F>(items: F) -> HashMap<F::Item, usize>
-    where F: Iterator, F::Item: Eq + Hash {
+where
+    F: Iterator,
+    F::Item: Eq + Hash,
+{
     let mut counts = HashMap::new();
     for x in items {
         *counts.entry(x).or_insert(0) += 1
@@ -46,7 +49,7 @@ fn off_by_one(x: &str, y: &str) -> Option<String> {
     let candidate: String = x
         .chars()
         .zip(y.chars())
-        .filter_map(|(x,y)| if x == y { Some(x) } else { None })
+        .filter_map(|(x, y)| if x == y { Some(x) } else { None })
         .collect();
 
     // Return the candidate if it is one shorter than the original
@@ -58,11 +61,10 @@ fn off_by_one(x: &str, y: &str) -> Option<String> {
 }
 
 fn part2<S: AsRef<str>>(input: &[S]) -> String {
-
-    for (i,x) in input.iter().enumerate() {
-        for y in &input[i+1 ..] {
+    for (i, x) in input.iter().enumerate() {
+        for y in &input[i + 1..] {
             if let Some(shared) = off_by_one(x.as_ref(), y.as_ref()) {
-                return shared
+                return shared;
             }
         }
     }
@@ -75,13 +77,17 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        let v = vec!["abcdef", "bababc", "abbcde", "abcccd", "aabcdd", "abcdee", "ababab"];
+        let v = vec![
+            "abcdef", "bababc", "abbcde", "abcccd", "aabcdd", "abcdee", "ababab",
+        ];
         assert_eq!(part1(&v), 12);
     }
 
     #[test]
     fn test_part2() {
-        let v = vec!["abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz"];
+        let v = vec![
+            "abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz",
+        ];
         assert_eq!(part2(&v), "fgij");
     }
 }
