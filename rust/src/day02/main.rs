@@ -33,7 +33,7 @@ fn part1<S: AsRef<str>>(input: &[S]) -> usize {
     let mut n3 = 0;
     for x in input {
         let counts = cardinalities(x.as_ref().chars());
-        let exact = |n| counts.values().find(|&&x| x == n).is_some();
+        let exact = |n| counts.values().any(|&x| x == n);
         if exact(2) {
             n2 += 1
         }
