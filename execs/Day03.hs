@@ -12,16 +12,16 @@ Maintainer  : emertens@gmail.com
 module Main where
 
 import           Advent
+import           Data.Map (Map)
 import qualified Data.Map as Map
-import           Data.Set (Set)
-import qualified Data.Set as Set
 
 -- | Print the answers to part 1 and 2 of day 3's task.
 main :: IO ()
 main =
-  do inp <- getParsedLines 3 parsePatch
-     print (part1 inp)
-     print (part2 inp)
+  do patches <- getParsedLines 3 parsePatch
+     let fabric = cutFabric patches
+     print (part1 fabric)
+     print (part2 fabric patches)
 
 -- | Description of a quilt patch.
 data Patch = Patch { patchId, offsetX, offsetY, sizeX, sizeY :: !Int }
@@ -38,32 +38,32 @@ parsePatch = Patch <$ "#"   <*> number
                    <* ": "  <*> number
                    <* "x"   <*> number
 
--- | Compute the number of coordinates that are covered by more than one patch
-part1 :: [Patch] -> Int
-part1
-  = Map.size                    -- compute the number of coords remaining
-  . Map.filter (> (1::Int))     -- keep all coords with an overlap
-  . Map.unionsWith (+)          -- combine all the coord counts
-  . map (Map.fromSet (const 1)) -- turn coords into counts at each coord
-  . map patchCoords             -- get coords for each patch
+-- | Given a list of patches, compute the number of patches covering
+-- each coordinate.
+--
+-- >>> cutFabric [Patch {patchId = 3, offsetX = 5, offsetY = 5, sizeX = 2, sizeY = 2}]
+-- fromList [((5,5),1),((5,6),1),((6,5),1),((6,6),1)]
+cutFabric :: [Patch] -> Map (Int, Int) Int
+cutFabric = cardinality . concatMap patchCoords
 
--- | Find the ID of the patch that overlaps with no others.
-part2 :: [Patch] -> Int
-part2 patches =
-  head [ i | let zs = [ (patchId p, patchCoords p) | p <- patches ]
-           , ((i,x),xs) <- pickOne zs
-           , all (disjoint x) (map snd xs)
-           ]
+-- | Compute the number of coordinates that are covered by more than one patch
+-- given the number of patches that cover each coordinate.
+part1 :: Map (Int, Int) Int -> Int
+part1 = count (> 1)
+
+-- | Find the ID of the patch that overlaps with no others given the number
+-- of patches that overlap each coordinate and the list of patches.
+part2 :: Map (Int, Int) Int -> [Patch] -> Int
+part2 fabric patches =
+  head [ patchId patch
+       | patch <- patches
+       , all (1 ==) (Map.intersection fabric (cutFabric [patch]))
+       ]
 
 -- | Make a set of the coordinates covered by a patch.
-patchCoords :: Patch -> Set (Int, Int)
+patchCoords :: Patch -> [(Int, Int)]
 patchCoords patch =
-  Set.fromList
-  [ (offsetX patch + x, offsetY patch + y)
-  | x <- [0 .. sizeX patch - 1]
-  , y <- [0 .. sizeY patch - 1]
+  [ (x,y)
+  | x <- [offsetX patch .. offsetX patch + sizeX patch - 1]
+  , y <- [offsetY patch .. offsetY patch + sizeY patch - 1]
   ]
-
--- | Check that two sets are disjoint
-disjoint :: Ord a => Set a -> Set a -> Bool
-disjoint p1 p2 = Set.null (Set.intersection p1 p2)

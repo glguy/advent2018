@@ -13,7 +13,7 @@ find pairs of characters that match except for a single position.
 -}
 module Main where
 
-import           Advent (count, getInput)
+import           Advent (cardinality, count, getInput)
 import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.List (tails)
@@ -44,13 +44,6 @@ part1 inp = product (map exact [2,3])
 -- "fgij"
 part2 :: Eq a => [[a]] -> [a]
 part2 inp = head [r | x:xs <- tails inp, y <- xs, Just r <- [offbyone x y]]
-
--- | Compute the number of occurrences of the elements in a given list.
---
--- >>> cardinality "bababc"
--- fromList [('a',2),('b',3),('c',1)]
-cardinality :: Ord a => [a] -> Map a Int
-cardinality xs = Map.fromListWith (+) [ (x,1) | x <- xs ]
 
 -- | Find the common elements between two lists that differ in exactly one
 -- position.

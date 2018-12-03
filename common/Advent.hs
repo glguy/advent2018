@@ -9,6 +9,8 @@ import Text.Megaparsec.Error (errorBundlePretty)
 import Data.Void
 import Data.List
 import qualified Data.Set as Set
+import           Data.Map (Map)
+import qualified Data.Map as Map
 
 -- | Get the input for the given day.
 --
@@ -38,9 +40,9 @@ getParsedInput i p =
 getParsedLines :: Int -> Parser a -> IO [a]
 getParsedLines i p = getParsedInput i (many (p <* newline) <* eof)
 
--- | Count the number of elements in a list that satisfy a predicate.
-count :: (a -> Bool) -> [a] -> Int
-count f xs = length (filter f xs)
+-- | Count the number of elements in a foldable value that satisfy a predicate.
+count :: Foldable t => (a -> Bool) -> t a -> Int
+count p = foldl' (\acc x -> if p x then acc+1 else acc) 0
 
 
 -- | Return true when the whole list is comprised of equal elements.
@@ -92,3 +94,10 @@ minimumMaybe :: Ord a => [a] -> Maybe a
 minimumMaybe xs
   | null xs   = Nothing
   | otherwise = Just $! minimum xs
+
+-- | Compute the number of occurrences of the elements in a given list.
+--
+-- >>> cardinality "bababc"
+-- fromList [('a',2),('b',3),('c',1)]
+cardinality :: Ord a => [a] -> Map a Int
+cardinality xs = Map.fromListWith (+) [ (x,1) | x <- xs ]
