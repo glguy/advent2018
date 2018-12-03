@@ -9,7 +9,6 @@ Maintainer  : emertens@gmail.com
 
 -}
 {-# Language OverloadedStrings #-} -- for parser
-module Main where
 
 import           Advent
 import           Data.Map (Map)

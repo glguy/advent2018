@@ -12,7 +12,6 @@ of these differences, and we search for duplicates in the partial
 sums of the differences list.
 
 -}
-module Main where
 
 import Advent (getInput)
 import Data.Maybe (fromJust)
