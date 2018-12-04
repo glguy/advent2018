@@ -15,8 +15,7 @@ import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.List (maximumBy, sortBy)
 import           Data.Ord (comparing)
-import           Data.Time (UTCTime, readSTime, defaultTimeLocale)
-import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import           Data.Time (LocalTime, readSTime, defaultTimeLocale, todMin, localTimeOfDay)
 
 -- | Print solutions to part 1 and part 2 of day 4
 main :: IO ()
@@ -34,11 +33,11 @@ data Entry
   deriving Show
 
 -- | Parse a file into lines of entries and sort them by timestamp.
-loadFile :: String -> [(UTCTime, Entry)]
+loadFile :: String -> [(LocalTime, Entry)]
 loadFile = sortBy (comparing fst) . map parseLine . lines
 
 -- | Parse one of the log entries
-parseLine :: String -> (UTCTime, Entry)
+parseLine :: String -> (LocalTime, Entry)
 parseLine str =
   case readSTime True defaultTimeLocale "[%Y-%m-%d %H:%M]" str of
     [(time, descr)] -> (time, entry)
@@ -53,16 +52,17 @@ parseLine str =
 
 -- | Generate a list of Guard ID and minute pairs for each minute that
 -- a particular guard is sleeping.
-toSleepMinutes :: [(UTCTime, Entry)] -> [(Int, Int)]
+toSleepMinutes :: [(LocalTime, Entry)] -> [(Int, Int)]
 toSleepMinutes = go (error "no start")
   where
     go _ ((_, Start who) : xs) = go who xs
     go who ((t1, Sleep) : (t2, Wake) : xs) =
-      [ (who ,s `div` 60 `mod` 60)
-      | s <- [truncate (utcTimeToPOSIXSeconds t1) ..
-              truncate (utcTimeToPOSIXSeconds t2)-60]
-      ] ++ go who xs
+      [ (who, s) | s <- [getMinute t1 .. getMinute t2 - 1] ] ++ go who xs
     go _ _ = []
+
+-- | Extract the minute from a local time.
+getMinute :: LocalTime -> Int
+getMinute = todMin . localTimeOfDay
 
 -- | Given a list of guard/minute pairs, find the product of the number
 -- of the sleepiest guard multiplied by the minute that guard is sleepiest.
