@@ -9,6 +9,7 @@ Maintainer  : emertens@gmail.com
 
 -}
 {-# Language OverloadedStrings #-} -- for parser
+module Main (main) where
 
 import           Advent
 import           Data.Map (Map)
@@ -27,9 +28,6 @@ data Patch = Patch { patchId, offsetX, offsetY, sizeX, sizeY :: !Int }
   deriving (Read, Show)
 
 -- | Parse a patch description.
---
--- >>> parseTest parsePatch "#3 @ 5,5: 2x2"
--- Patch {patchId = 3, offsetX = 5, offsetY = 5, sizeX = 2, sizeY = 2}
 parsePatch :: Parser Patch
 parsePatch = Patch <$ "#"   <*> number
                    <* " @ " <*> number

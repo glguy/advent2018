@@ -11,6 +11,7 @@ Day 2 has us count up the occurrences of characters in words and
 find pairs of characters that match except for a single position.
 
 -}
+module Main (main) where
 
 import           Advent (cardinality, count, getInput)
 import           Data.Map (Map)
