@@ -57,13 +57,18 @@ parseAction str =
 -- | Generate a list of Guard ID and minute pairs for each minute that
 -- a particular guard is sleeping.
 toSleepMinutes :: [(LocalTime, Action)] -> [(Guard, Int)]
-toSleepMinutes = go (error "no start")
+toSleepMinutes = expandMinutes . go (error "no start")
   where
-    go _ ((_, Start who) : xs) = go who xs
-    go who ((t1, Sleep) : (t2, Wake) : xs) =
-      [ (who, s) | s <- [getMinute t1 .. getMinute t2 - 1] ] ++ go who xs
-    go _ [] = []
-    go _ xs = error ("toSleepMinutes: " ++ show xs)
+    -- Transform labeled sleep spans into labeled sleep minutes
+    expandMinutes xs =
+      [ (who, i) | (who, t1, t2) <- xs
+                 , i <- [getMinute t1 .. getMinute t2 - 1]]
+
+    -- Transform start, sleep, wake entries into labeled sleep spans
+    go _ ((_, Start who) : xs)           = go who xs
+    go who ((t, Sleep) : (u, Wake) : xs) = (who, t, u) : go who xs
+    go _ []                              = []
+    go _ xs                              = error ("toSleepMinutes: " ++ show xs)
 
 -- | Extract the minute from a local time.
 getMinute :: LocalTime -> Int
