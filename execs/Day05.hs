@@ -21,21 +21,45 @@ main =
      print (part1 inp)
      print (part2 inp)
 
-
--- | Reduce a string by eliminating matched pairs of upper and lowercase
--- letters.
-part1 :: String -> Int
-part1 = length . foldr step ""
+-- | Collapse the polymer using the lowercase/uppercase matching rule.
+--
+-- >>> simplify "dabAcCaCBAcCcaDA"
+-- "dabCBAcaDA"
+simplify :: String -> String
+simplify = foldr step ""
   where
-    step x (y:ys) | x /= y && toUpper x == toUpper y = ys
-    step x ys                                        = x : ys
+    -- Invariant: list argument to step is always completely reduced
+    step x (y:ys) | match x y = ys
+    step x ys                 = x : ys
+
+-- | Match characters where one is the lowercase version of the other.
+--
+-- >>> match 'a' 'A'
+-- True
+-- >>> match 'A' 'a'
+-- True
+-- >>> match 'a' 'a'
+-- False
+match :: Char -> Char -> Bool
+match x y = x /= y && toUpper x == toUpper y
+
+-- | Compute the length of the collapsed polymer.
+--
+-- >>> part1 "dabAcCaCBAcCcaDA"
+-- 10
+part1 :: String -> Int
+part1 = length . simplify
 
 
 -- | Find the minimum length a string can reduce to when we're allowed
 -- to remove any one pair of characters.
+--
+-- >>> part2 "dabAcCaCBAcCcaDA"
+-- 4
 part2 :: String -> Int
 part2 str = minimum lengths
   where
-    candidates = nub (map toLower str)
-    isOk bad x = x /= bad && x /= toUpper bad
-    lengths    = [part1 (filter (isOk bad) str) | bad <- ['a'..'z']]
+    str'       = simplify str
+    candidates = nub (map toLower str')
+    isOk bad x = bad /= toLower x
+    lengths    = [part1 (filter (isOk bad) str') | bad <- candidates]
