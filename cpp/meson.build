@@ -6,3 +6,4 @@ project('advent-2018', 'cpp',
 executable('Day01', 'Day01.cpp', install : true)
 executable('Day02', 'Day02.cpp', install : true)
 executable('Day03', 'Day03.cpp', install : true)
+executable('Day05', 'Day05.cpp', install : true)
