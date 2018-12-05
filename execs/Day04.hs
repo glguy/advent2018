@@ -20,45 +20,55 @@ import           Data.Time (LocalTime, readSTime, defaultTimeLocale, todMin, loc
 -- | Print solutions to part 1 and part 2 of day 4
 main :: IO ()
 main =
-  do input <- loadFile <$> getInput 4
-     let sleepMins = toSleepMinutes input
-     print (part1 sleepMins)
-     print (part2 sleepMins)
+  do input <- toSleepMinutes . parseFile <$> getInput 4
+     print (part1 input)
+     print (part2 input)
 
--- | Log entries
-data Entry
-  = Start Int -- ^ Guard begins shift
-  | Wake      -- ^ Current guard wakes up
-  | Sleep     -- ^ Current guard falls asleep
-  deriving Show
+-- | Log entry actions
+data Action
+  = Start Guard -- ^ Guard begins shift
+  | Wake        -- ^ Current guard wakes up
+  | Sleep       -- ^ Current guard falls asleep
+  deriving (Show, Read, Eq, Ord)
+
+newtype Guard = Guard { guardId :: Int }
+  deriving (Show, Read, Eq, Ord)
 
 -- | Parse a file into lines of entries and sort them by timestamp.
-loadFile :: String -> [(LocalTime, Entry)]
-loadFile = sortBy (comparing fst) . map parseLine . lines
+parseFile :: String -> [(LocalTime, Action)]
+parseFile = sortBy (comparing fst) . map parseLine . lines
 
--- | Parse one of the log entries
-parseLine :: String -> (LocalTime, Entry)
+-- | Parse one of the log entries as a pair of timestamp and action.
+parseLine :: String -> (LocalTime, Action)
 parseLine str =
   case readSTime True defaultTimeLocale "[%Y-%m-%d %H:%M]" str of
-    [(time, descr)] -> (time, entry)
-      where
-        entry =
-          case words descr of
-            ["wakes", "up"] -> Wake
-            ["falls", "asleep"] -> Sleep
-            ["Guard", '#':num, "begins", "shift"] -> Start (read num)
-            _ -> error descr
-    _ -> error str
+    [(time, descr)] -> (time, parseAction descr)
+    _               -> error ("parseLine: " ++ str)
+
+-- | Parse the action text of a log entry.
+parseAction :: String -> Action
+parseAction str =
+  case words str of
+    ["wakes", "up"]                       -> Wake
+    ["falls", "asleep"]                   -> Sleep
+    ["Guard", '#':num, "begins", "shift"] -> Start (Guard (read num))
+    _                                     -> error ("parseAction: " ++ str)
 
 -- | Generate a list of Guard ID and minute pairs for each minute that
 -- a particular guard is sleeping.
-toSleepMinutes :: [(LocalTime, Entry)] -> [(Int, Int)]
-toSleepMinutes = go (error "no start")
+toSleepMinutes :: [(LocalTime, Action)] -> [(Guard, Int)]
+toSleepMinutes = expandMinutes . go (error "no start")
   where
-    go _ ((_, Start who) : xs) = go who xs
-    go who ((t1, Sleep) : (t2, Wake) : xs) =
-      [ (who, s) | s <- [getMinute t1 .. getMinute t2 - 1] ] ++ go who xs
-    go _ _ = []
+    -- Transform labeled sleep spans into labeled sleep minutes
+    expandMinutes xs =
+      [ (who, i) | (who, t1, t2) <- xs
+                 , i <- [getMinute t1 .. getMinute t2 - 1]]
+
+    -- Transform start, sleep, wake entries into labeled sleep spans
+    go _ ((_, Start who) : xs)           = go who xs
+    go who ((t, Sleep) : (u, Wake) : xs) = (who, t, u) : go who xs
+    go _ []                              = []
+    go _ xs                              = error ("toSleepMinutes: " ++ show xs)
 
 -- | Extract the minute from a local time.
 getMinute :: LocalTime -> Int
@@ -66,20 +76,18 @@ getMinute = todMin . localTimeOfDay
 
 -- | Given a list of guard/minute pairs, find the product of the number
 -- of the sleepiest guard multiplied by the minute that guard is sleepiest.
-part1 :: [(Int, Int)] -> Int
-part1 sleepMins = sleepyNum * sleepyMin
+part1 :: [(Guard, Int)] -> Int
+part1 sleepMins = guardId sleepyWho * sleepyMin
   where
-    minutesSlept = cardinality (map fst sleepMins)
-    sleepyNum    = bigKey minutesSlept
-    sleepyMins   = cardinality [ m | (n, m) <- sleepMins, n == sleepyNum ]
-    sleepyMin    = bigKey sleepyMins
+    sleepyWho = bigKey (cardinality [n | (n, _) <- sleepMins])
+    sleepyMin = bigKey (cardinality [m | (n, m) <- sleepMins, n == sleepyWho])
 
 -- | Give a list of guard/minute pairs, find the product of the
 -- guard that sleeps the most in a particular minute and that minute.
-part2 :: [(Int, Int)] -> Int
-part2 sleepMins = num * minute
+part2 :: [(Guard, Int)] -> Int
+part2 sleepMins = guardId who * minute
   where
-    (num, minute) = bigKey (cardinality sleepMins)
+    (who, minute) = bigKey (cardinality sleepMins)
 
 -- | Find the key associated with the largest value in a 'Map'.
 bigKey :: Ord a => Map k a -> k
