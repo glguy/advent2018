@@ -35,8 +35,8 @@ newtype Guard = Guard { guardId :: Int }
   deriving (Show, Read, Eq, Ord)
 
 -- | Parse a file into lines of entries and sort them by timestamp.
-parseFile :: String -> [(LocalTime, Action)]
-parseFile = sortBy (comparing fst) . map parseLine . lines
+parseFile :: [String] -> [(LocalTime, Action)]
+parseFile = sortBy (comparing fst) . map parseLine
 
 -- | Parse one of the log entries as a pair of timestamp and action.
 parseLine :: String -> (LocalTime, Action)

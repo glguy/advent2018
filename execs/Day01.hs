@@ -26,8 +26,8 @@ main =
      print (part2 inp)
 
 -- | Parse input a lines of integers prefixed by @+@ and @-@.
-parseInput :: String -> [Integer]
-parseInput = map readInt . lines
+parseInput :: [String] -> [Integer]
+parseInput = map readInt
 
 -- | Parse an integer that is prefixed with a @+@ or @-@.
 --

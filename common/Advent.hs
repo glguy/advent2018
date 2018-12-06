@@ -20,19 +20,22 @@ import qualified Data.Map as Map
 -- If the filename is @-@ the stdin will be used as the input file.
 --
 -- Otherwise the input text file corresponding to the day number will be used.
-getInput :: Int {- ^ day number -} -> IO String
-getInput i =
+getRawInput :: Int {- ^ day number -} -> IO String
+getRawInput i =
   do args <- getArgs
      case args of
        []    -> readFile (printf "inputs/input%02d.txt" i)
        "-":_ -> getContents
        fn:_  -> readFile fn
 
+getInput :: Int -> IO [String]
+getInput i = lines <$> getRawInput i
+
 type Parser = Parsec Void String
 
 getParsedInput :: Int -> Parser a -> IO a
 getParsedInput i p =
-  do input <- getInput i
+  do input <- getRawInput i
      case parse p "input.txt" input of
        Left e -> fail (errorBundlePretty e)
        Right a -> return a

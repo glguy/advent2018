@@ -17,7 +17,7 @@ import Data.List (nub)
 -- | Print the answers to day 5
 main :: IO ()
 main =
-  do inp <- head . words <$> getInput 5
+  do inp <- head <$> getInput 5
      print (part1 inp)
      print (part2 inp)
 

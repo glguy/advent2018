@@ -21,7 +21,7 @@ import           Data.List (tails)
 -- | Print the answers to part 1 and 2 of day 2's task.
 main :: IO ()
 main =
-  do inp <- lines <$> getInput 2
+  do inp <- getInput 2
      print (part1 inp)
      putStrLn (part2 inp)
 
