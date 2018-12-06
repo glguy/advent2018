@@ -10,14 +10,16 @@ Maintainer  : emertens@gmail.com
 -}
 module Main (main) where
 
-import Advent
-import Data.List
-import Data.Ord
+import Advent (getInput, cardinality)
+import Data.List (groupBy, foldl', sort, sortBy)
+import Data.Function (on)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 type Coord = (Int, Int)
 
+-- | Magic number used in part 2 when computing the region that
+-- isn't too far from all the points.
 far :: Int
 far = 10000
 
@@ -25,20 +27,8 @@ far = 10000
 main :: IO ()
 main =
   do input <- parseInput <$> getInput 6
-
-     -- Compute the minimum and maximum values of the x and y coordinates
-     let minx = minimum (map fst input)
-         miny = minimum (map snd input)
-         maxx = maximum (map fst input)
-         maxy = maximum (map snd input)
-
-     -- Compute all the coordinates within the min/max bounds as well as a
-     -- box that is one larger all the way around
-     let box0 = region (minx, miny) (maxx, maxy)
-         box1 = region (minx+1, miny+1) (maxx+1, maxy+1)
-
-     print (part1 input box0 box1)
-     print (part2 input box0)
+     print (part1 input)
+     print (part2 input)
 
 
 -- | Parse the input file as lines of comma delimited coordinates
@@ -51,9 +41,9 @@ parseInput = map parseCoord
 -- (1,2)
 parseCoord :: String -> Coord
 parseCoord str =
-  case reads str of
-    [(x, ',':ys)] -> (x,read ys)
-    _ -> error ("parseCoord: " ++ str)
+  case break (','==) str of
+    (x,',':y) -> (read x,read y)
+    _         -> error ("parseCoord: " ++ str)
 
 -- | Compute the Manhattan distance between two coordinates
 manhattan :: Coord -> Coord -> Int
@@ -76,10 +66,8 @@ region (xlo, ylo) (xhi, yhi) = [(x, y) | x <- [xlo .. xhi], y <- [ylo .. yhi]]
 -- only grow larger and larger!
 part1 ::
   [Coord] {- ^ input coordinates      -} ->
-  [Coord] {- ^ enclosing region       -} ->
-  [Coord] {- ^ slightly larger region -} ->
   Int     {- ^ solution               -}
-part1 input box0 box1
+part1 input
   = maximum
   $ Map.mapMaybe id -- eliminate growing regions
   $ Map.intersectionWith match (regionSizes box0) (regionSizes box1)
@@ -90,33 +78,43 @@ part1 input box0 box1
       | x == y    = Just x
       | otherwise = Nothing
 
-    toRegion c
-      | snd (choices !! 0) == snd (choices !! 1) = []
-      | otherwise = map fst (take 1 choices)
+    toRegion c =
+      case choices of
+        [(r,_)]:_ -> [r]
+        _         -> []
       where
-        choices =
-          sortBy (comparing snd)
-            [ (coord, manhattan c coord) | coord <- input ]
+        choices = groupBy ((==)    `on` snd)
+                $ sortBy  (compare `on` snd)
+                  [ (coord, manhattan c coord) | coord <- input ]
+
+    -- Compute the minimum and maximum values of the x and y coordinates
+    minx = minimum (map fst input)
+    miny = minimum (map snd input)
+    maxx = maximum (map fst input)
+    maxy = maximum (map snd input)
+
+    -- Compute all the coordinates within the min/max bounds as well as a
+    -- box that is one larger all the way around
+    box0 = region (minx, miny) (maxx, maxy)
+    box1 = region (minx+1, miny+1) (maxx+1, maxy+1)
 
 
 -- | Part 2 finds the size of the region with sum of distances less than 10,000
--- by knowing that the region must overlap at least partially with the bounding
--- rectangle. Because the region is defined by Manhattan distance the region
--- must be connected, so we search the bounding rectangle for a starting point.
+-- by knowing that this region must contain the point found at the median of
+-- all x and y coordinates (which is where the distance will be minimized.
+-- Because the region is defined by Manhattan distance the region
+-- must be connected, so we can find it by expanding this starting point.
 -- Next we'll grow the region considering cardinal neighbors for any point that
 -- is in bounds. Once we're unable to grow the region any further we return its
 -- size.
-part2 ::
-  [Coord] {- ^ input coordinates -} ->
-  [Coord] {- ^ enclosing region  -} ->
-  Int
-part2 input box0 = search Set.empty (Set.singleton startingPoint)
+part2 :: [Coord] -> Int
+part2 input = search Set.empty (Set.singleton startingPoint)
 
   where
     distances :: Coord -> Int
     distances (x,y) = sum (map (manhattan (x,y)) input)
 
-    startingPoint = head [b | b <- box0, distances b < far]
+    startingPoint = (median (map fst input), median (map snd input))
 
     search seen next =
       case Set.minView next of
@@ -124,5 +122,17 @@ part2 input box0 = search Set.empty (Set.singleton startingPoint)
         Just (i, next')
           | Set.notMember i seen, distances i < far ->
               search (Set.insert i seen)
-                     (foldl (flip Set.insert) next' (neighbors i))
+                     (foldl' (flip Set.insert) next' (neighbors i))
           | otherwise -> search seen next'
+
+-- | Return the median element of a list. For even lists return the second
+-- of the two middle elements.
+--
+-- >>> median [10,1,5]
+-- 5
+-- >>> median [1,3,4,5]
+-- 4
+-- >>> median [1,3,9,10,4,5]
+-- 5
+median :: Ord a => [a] -> a
+median xs = sort xs !! (length xs `quot` 2)
