@@ -8,71 +8,101 @@ Maintainer  : emertens@gmail.com
 <https://adventofcode.com/2018/day/7>
 
 -}
+{-# Language DeriveTraversable #-}
 module Main (main) where
 
-import Advent
-import Data.List
-import Data.Char
-import Data.Map (Map)
+import Advent        (getInput, ordNub)
+import Data.List     (delete, find, sort, unfoldr)
+import Data.Char     (ord)
+import Data.Foldable (toList)
+import Data.Map      (Map)
 import qualified Data.Map as Map
 
 -- | Print the answers to day 7
 main :: IO ()
 main =
   do input <- parseInput <$> getInput 7
-     putStrLn (part1 input)
-     print (part2 input)
+     let queue = newWorkQueue input
+     putStrLn (part1 queue)
+     print (part2 queue)
 
-parseInput :: [String] -> [(Char,Char)]
+-- | Parse the input file as a list of task dependencies.
+parseInput :: [String] -> [Dep Char]
 parseInput = map $ \str ->
   case words str of
-    xs-> (head (xs!!1),head (xs!!7))
+    ["Step", [x], "must", "be", "finished", "before", "step", [y], "can", "begin."] ->
+      Dep x y
+    _ -> error ("parseInput: " ++ str)
 
-part1 :: [(Char, Char)] -> String
-part1 = unfoldr go . newWorkQueue
+-- | Given a work queue compute the order that a single elf would complete
+-- the tasks.
+part1 :: Eq a => WorkQueue a -> [a]
+part1 = unfoldr go
   where
     go q = do (x, q') <- nextTask q
-              return (x, finishTasks [x] q')
+              Just (x, finishTasks [x] q')
 
-part2 :: [(Char, Char)] -> Int
-part2 = part2' 0 Map.empty . newWorkQueue
+-- | Compute time required to complete all of the work defined by the given
+-- work queue given 5 parallel workers.
+part2 :: WorkQueue Char -> Int
+part2 = part2' 0 Map.empty
 
-part2' :: Int -> Map Char Int -> WorkQueue -> Int
+-- | 'part2' worker loop.
+part2' ::
+  Int            {- ^ time accumulator                      -} ->
+  Map Char Int   {- ^ current tasks with time remaining     -} ->
+  WorkQueue Char {- ^ task queue                            -} ->
+  Int            {- ^ total time spent to complete all work -}
 part2' time work queue
-  | isComplete queue, Map.null work = time
-  | Map.size work < 5, Just (next, queue') <- nextTask queue =
-      part2' time (addWork next work) queue'
+
+  -- Workers available and work ready to start
+  | Map.size work < 5
+  , Just (next, queue') <- nextTask queue =
+      part2' time (Map.insert next (timeRequired next) work) queue'
+
+  -- All work complete
+  | Map.null work = time
+
+  -- No work ready to start, make progress on current work
   | otherwise =
-      part2' (time+step) (Map.filter (>0) work') queue'
-  where
-    step          = minimum work
-    (done, work') = Map.partition (0==) (subtract step <$> work)
-    queue'        = finishTasks (Map.keys done) queue
+    let step          = minimum work
+        (done, work') = Map.partition (0==) (subtract step <$> work)
+        queue'        = finishTasks (Map.keys done) queue
+    in part2' (time+step) (Map.filter (>0) work') queue'
 
 
-addWork :: Char -> Map Char Int -> Map Char Int
-addWork c m = Map.insert c (timeRequired c) m
-
+-- | Compute time required for task by name.
 timeRequired :: Char -> Int
 timeRequired c = ord c - ord 'A' + 61
 
-data WorkQueue = WorkQueue [Char] [(Char,Char)]
+------------------------------------------------------------------------
 
-newWorkQueue :: [(Char, Char)] -> WorkQueue
-newWorkQueue deps = WorkQueue (nub [z | (x,y) <- deps, z <- [x,y]]) deps
+-- | Track a dependency between two items
+data Dep a =
+  -- | 'depBefore' must be finished before 'depAfter'
+  Dep { depBefore, depAfter :: a }
+  deriving (Read, Show, Functor, Foldable, Traversable)
 
-nextTask :: WorkQueue -> Maybe (Char, WorkQueue)
-nextTask (WorkQueue remaining deps)
-  | null candidates = Nothing
-  | otherwise       = Just (next, WorkQueue (delete next remaining) deps)
+-- | Track remaining tasks and dependencies between tasks.
+data WorkQueue a = WorkQueue [Dep a] [a]
+
+-- | Construct a new work queue given the task dependencies. Task IDs
+-- are computed by checking the IDs mentioned in the dependencies.
+newWorkQueue :: Ord a => [Dep a] -> WorkQueue a
+newWorkQueue deps = WorkQueue deps remaining
   where
-    candidates = remaining \\ map snd deps
-    next = minimum candidates
+    remaining = ordNub (sort (concatMap toList deps))
 
-finishTasks :: [Char] -> WorkQueue -> WorkQueue
-finishTasks tasks (WorkQueue remaining deps) = WorkQueue remaining deps'
+-- | Find the next task available to be started and remove it from
+-- the work queue.
+nextTask :: Eq a => WorkQueue a -> Maybe (a, WorkQueue a)
+nextTask (WorkQueue deps remaining) =
+  do next <- find (`notElem` map depAfter deps) remaining
+     Just (next, WorkQueue deps (delete next remaining))
+
+-- | Mark a list of tasks as completed so that tasks depending on them
+-- can be started.
+finishTasks :: Eq a => [a] -> WorkQueue a -> WorkQueue a
+finishTasks tasks (WorkQueue deps remaining) = WorkQueue deps' remaining
   where
-    deps' = filter (\x -> not (fst x `elem` tasks)) deps
-
-isComplete :: WorkQueue -> Bool
-isComplete (WorkQueue remaining _) = null remaining
+    deps' = filter (\x -> depBefore x `notElem` tasks) deps
