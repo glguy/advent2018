@@ -10,10 +10,7 @@ fn main() {
 
 /// Parse stdin as lines of integers
 fn get_input() -> Vec<String> {
-    let stdin = io::stdin();
-    let handle = stdin.lock();
-    let v = handle.lines().collect::<Result<_, _>>().unwrap();
-    v
+    io::stdin().lock().lines().collect::<Result<_, _>>().unwrap()
 }
 
 fn cardinalities<F>(items: F) -> HashMap<F::Item, usize>

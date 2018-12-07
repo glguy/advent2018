@@ -12,13 +12,11 @@ fn main() {
 
 /// Parse stdin as lines of integers
 fn get_input() -> Vec<i64> {
-    let stdin = io::stdin();
-    let handle = stdin.lock();
-    let v = handle
+    io::stdin()
+        .lock()
         .lines()
         .map(|line| line.unwrap().parse().unwrap())
-        .collect();
-    v
+        .collect()
 }
 
 /// Compute sum of list of deltas
