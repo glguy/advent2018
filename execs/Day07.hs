@@ -8,10 +8,10 @@ Maintainer  : emertens@gmail.com
 <https://adventofcode.com/2018/day/7>
 
 -}
-{-# Language DeriveTraversable #-}
+{-# Language OverloadedStrings, DeriveTraversable #-}
 module Main (main) where
 
-import Advent        (getInput, ordNub)
+import Advent        (Parser, anySingle, getParsedLines, ordNub)
 import Data.List     (delete, find, sort, unfoldr)
 import Data.Char     (ord)
 import Data.Foldable (toList)
@@ -21,18 +21,16 @@ import qualified Data.Map as Map
 -- | Print the answers to day 7
 main :: IO ()
 main =
-  do input <- parseInput <$> getInput 7
+  do input <- getParsedLines 7 parseDep
      let queue = newWorkQueue input
      putStrLn (part1 queue)
      print (part2 queue)
 
 -- | Parse the input file as a list of task dependencies.
-parseInput :: [String] -> [Dep Char]
-parseInput = map $ \str ->
-  case words str of
-    ["Step", [x], "must", "be", "finished", "before", "step", [y], "can", "begin."] ->
-      Dep x y
-    _ -> error ("parseInput: " ++ str)
+parseDep :: Parser (Dep Char)
+parseDep = Dep <$ "Step "                          <*> anySingle
+               <* " must be finished before step " <*> anySingle
+               <* " can begin."
 
 -- | Given a work queue compute the order that a single elf would complete
 -- the tasks.

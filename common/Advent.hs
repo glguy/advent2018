@@ -1,8 +1,11 @@
-module Advent where
+module Advent
+  ( module Advent
+  , satisfy, anySingle
+  ) where
 
 import System.Environment
 import Text.Printf
-import Text.Megaparsec (many, parse, parseErrorTextPretty, Parsec, eof)
+import Text.Megaparsec (anySingle, satisfy, many, parse, parseErrorTextPretty, Parsec, eof)
 import Text.Megaparsec.Char (newline)
 import Text.Megaparsec.Char.Lexer (decimal, signed)
 import Text.Megaparsec.Error (errorBundlePretty)
