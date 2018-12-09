@@ -45,11 +45,9 @@ part2 (Tree xs ys)
 
 -- | 1-based list index returning Nothing on failure.
 index :: Int -> [a] -> Maybe a
-index 0 _ = Nothing
-index n xs =
-  case drop (n-1) xs of
-    a:_ -> Just a
-    []  -> Nothing
+index n xs
+  | n >= 1, a:_ <- drop (n-1) xs = Just a
+  | otherwise                    = Nothing
 
 -- | Parse a tree from a list of integers
 getTree :: State [Int] (Tree Int)
