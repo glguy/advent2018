@@ -7,6 +7,11 @@ Maintainer  : emertens@gmail.com
 
 <https://adventofcode.com/2018/day/9>
 
+This solution takes advantage of "Data.Sequence" providing efficient
+access to both ends of a sequence. This gives us a amortized constant
+time rotation operation and allows the solution to run quickly even at
+the part 2 input size.
+
 -}
 {-# Language OverloadedStrings #-}
 module Main (main) where
@@ -23,7 +28,8 @@ main =
      print (game players marbles)
      print (game players (100*marbles))
 
-parseInput :: Parser (Int, Int)
+-- | Extract the number of players and number of marbles from the input string.
+parseInput :: Parser (Int, Int) -- ^ (players, marbles)
 parseInput = (,) <$> number <* " players; last marble is worth " <*> number <* " points"
 
 -- | Player the marble game, find maximum score
