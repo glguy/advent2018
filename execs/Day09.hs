@@ -13,7 +13,7 @@ module Main (main) where
 
 import Advent (Parser, getParsedLines, number)
 import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
+import qualified Data.IntMap.Strict as IntMap
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 
