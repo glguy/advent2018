@@ -11,10 +11,9 @@ Maintainer  : emertens@gmail.com
 {-# Language OverloadedStrings #-}
 module Main (main) where
 
-import Advent (Parser, getParsedLines, number)
-import Data.IntMap (IntMap)
+import           Advent (Parser, getParsedLines, number)
 import qualified Data.IntMap.Strict as IntMap
-import Data.Sequence (Seq)
+import           Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 
 -- | Print the answers to day 9
@@ -40,40 +39,39 @@ parseInput = (,) <$> number <* " players; last marble is worth " <*> number <* "
 -- >>> game 30 5807
 -- 37305
 game :: Int {- ^ players -} -> Int {- ^ max marble -} -> Int {- ^ max score -}
-game players marbles = go IntMap.empty (Seq.singleton 0) 0 1
+game players marbles = go IntMap.empty (Seq.singleton 0) 1
   where
-    go scores circle player marble
+    go scores circle i
 
       -- game over, find winning score
-      | marble > marbles = maximum scores
+      | i > marbles = maximum scores
 
       -- scoring marble, update current elf's score
-      | isScoreMarble marble =
-          case Seq.splitAt (Seq.length circle - 7) circle of
-            (l, picked Seq.:<| r) ->
-               go (IntMap.insertWith (+) player (marble + picked) scores)
-                  (r Seq.>< l)
-                  player' marble'
+      | isScoreMarble i =
+          case rotate (-7) circle of
+            Seq.Empty              -> error "game: empty circle"
+            picked Seq.:<| circle' -> go scores' circle' (i+1)
+              where
+                scores' = IntMap.insertWith (+) (i `rem` players) (i + picked) scores
 
       -- normal turn, just add the marble
-      | otherwise =
-          case Seq.splitAt (wrap (Seq.length circle)) circle of
-            (l,r) -> go scores
-                        (marble Seq.<| r Seq.>< l)
-                        player' marble'
-      where
-        player' = (player + 1) `rem` players
-        marble' = marble + 1
+      | otherwise = go scores (i Seq.<| rotate 2 circle) (i+1)
+
+-- | Rotate the elements of a sequence. Positive numbers index from the front.
+-- Negative numbers index from the back. Indexes wrap around.
+--
+-- >>> rotate (-2) (Seq.fromList [0..10])
+-- fromList [9,10,0,1,2,3,4,5,6,7,8]
+-- >>> rotate 2 (Seq.fromList [0..10])
+-- fromList [2,3,4,5,6,7,8,9,10,0,1]
+-- >>> rotate 10 (Seq.fromList [0..2])
+-- fromList [1,2,0]
+rotate :: Int -> Seq a -> Seq a
+rotate n xs
+  | Seq.null xs = xs
+  | otherwise   = case Seq.splitAt (n `mod` Seq.length xs) xs of
+                    (l, r) -> r <> l
 
 -- | Predicate for marbles that trigger a score event
 isScoreMarble :: Int -> Bool
 isScoreMarble i = i `rem` 23 == 0
-
--- | Figure out what index to split the circle at on a normal turn
-wrap :: Int -> Int
-wrap 0 = 0
-wrap 1 = 1
-wrap 2 = 0
-wrap n = 2
-
---405 players; last marble is worth 70953 points
