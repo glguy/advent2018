@@ -14,6 +14,7 @@ module Main (main) where
 import Advent                    (getInput)
 import Control.Monad             (replicateM)
 import Control.Monad.Trans.State (State, evalState, get, put)
+import Data.Maybe                (fromMaybe)
 
 -- | Print the answers to day 8
 main :: IO ()
@@ -40,7 +41,7 @@ part1 = sum
 part2 :: Tree Int -> Int
 part2 (Tree xs ys)
   | null xs   = sum ys
-  | otherwise = sum [ maybe 0 part2 (index i xs) | i <- ys ]
+  | otherwise = sum [ fromMaybe 0 (index i (map part2 xs)) | i <- ys ]
 
 -- | 1-based list index returning Nothing on failure.
 index :: Int -> [a] -> Maybe a
