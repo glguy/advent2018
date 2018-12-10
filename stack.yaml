@@ -1,5 +1,6 @@
-resolver: lts-12.20
+resolver: lts-12.22
 packages:
 - .
 extra-deps:
 - megaparsec-7.0.4
+- yoctoparsec-0.1.0.0
