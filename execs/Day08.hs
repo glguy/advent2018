@@ -13,7 +13,6 @@ module Main (main) where
 
 import Advent                    (getInput)
 import Control.Monad             (replicateM)
-import Data.List                 (uncons)
 import Data.Maybe                (fromMaybe)
 import qualified Control.Monad.Yoctoparsec as Y
 
@@ -21,7 +20,7 @@ import qualified Control.Monad.Yoctoparsec as Y
 main :: IO ()
 main =
   do input <- parseInput . head <$> getInput 8
-     let Just (tree, []) = Y.parseStream uncons parseTree input
+     let Just (tree, []) = Y.parseString parseTree input
      print (part1 tree)
      print (part2 tree)
 
