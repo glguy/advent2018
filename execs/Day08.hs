@@ -13,14 +13,15 @@ module Main (main) where
 
 import Advent                    (getInput)
 import Control.Monad             (replicateM)
-import Control.Monad.Trans.State (State, evalState, get, put)
+import Data.List                 (uncons)
 import Data.Maybe                (fromMaybe)
+import qualified Control.Monad.Yoctoparsec as Y
 
 -- | Print the answers to day 8
 main :: IO ()
 main =
   do input <- parseInput . head <$> getInput 8
-     let tree = evalState getTree input
+     let Just (tree, []) = Y.parseStream uncons parseTree input
      print (part1 tree)
      print (part2 tree)
 
@@ -50,18 +51,10 @@ index n xs
   | otherwise                    = Nothing
 
 -- | Parse a tree from a list of integers
-getTree :: State [Int] (Tree Int)
-getTree =
-  do n <- get1
-     m <- get1
-     a <- replicateM n getTree
-     b <- replicateM m get1
+parseTree :: Y.Parser Maybe Int (Tree Int)
+parseTree =
+  do n <- Y.token
+     m <- Y.token
+     a <- replicateM n parseTree
+     b <- replicateM m Y.token
      pure (Tree a b)
-
--- | Extract the next element from the source list.
-get1 :: State [a] a
-get1 =
-  do xxs <- get
-     case xxs of
-       x:xs -> x <$ put xs
-       [] -> error "get1: empty list"
