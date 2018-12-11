@@ -4,3 +4,4 @@ packages:
 extra-deps:
 - megaparsec-7.0.4
 - yoctoparsec-0.1.0.0
+- loops-0.2.0.2

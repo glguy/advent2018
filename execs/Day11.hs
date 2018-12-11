@@ -18,12 +18,14 @@ the elements contained in an arbitrary rectangle via addition
 and subtraction of 4 elements.
 
 -}
+{-# Language BangPatterns #-}
 module Main (main) where
 
 import           Advent        (getParsedLines, number)
 import           Data.Ord      (comparing)
-import           Data.List     (intercalate)
-import           Data.Foldable (maximumBy)
+import           Data.List     (foldl1', maximumBy, intercalate)
+import           Data.Foldable (foldl')
+import qualified Control.Monad.Loop as L
 import qualified Data.Array.Unboxed as A
 
 type Coord = (Int, Int)
@@ -42,19 +44,38 @@ main =
      putStrLn (part2 table)
 
 -- | Compute the position of the largest-valued 3-square
+--
+-- >>> part1 (summedAreaTable (powerLevel 18))
+-- "33,45"
+-- >>> part1 (summedAreaTable (powerLevel 42))
+-- "21,61"
 part1 :: Grid -> String
 part1 areas = intercalate "," (map show [x,y])
   where
-    ((x,y),_) = maximumSquare areas [3]
+    ((x,y),_) = maximumSquare areas 3 3
 
 -- | Compute the position and size of the largest-valued square on the grid
+--
+-- >>> part2 (summedAreaTable (powerLevel 18))
+-- "90,269,16"
+-- >>> part2 (summedAreaTable (powerLevel 42))
+-- "232,251,12"
 part2 :: Grid -> String
 part2 areas = intercalate "," (map show [x,y,s])
   where
-    ((x,y),s) = maximumSquare areas [1..dim]
+    ((x,y),s) = maximumSquare areas 1 dim
 
 -- | Compute power level of power cell given the cells coordinate
 -- and the player's serial number.
+--
+-- >>> powerLevel 8 (3,5)
+-- 4
+-- >>> powerLevel 57 (122,79)
+-- -5
+-- >>> powerLevel 39 (217,196)
+-- 0
+-- >>> powerLevel 71 (101,153)
+-- 4
 powerLevel ::
   Int   {- ^ serial number   -} ->
   Coord {- ^ grid coordinate -} ->
@@ -67,14 +88,30 @@ powerLevel serial (x, y) = (rackid * y + serial) * rackid `div` 100 `mod` 10 - 5
 -- given Grid that maximizes the sum of the contained power levels.
 maximumSquare ::
   Grid         {- ^ summed area grid              -} ->
-  [Int]        {- ^ candidate sizes               -} ->
+  Int          {- ^ candidate size lower bound    -} ->
+  Int          {- ^ candidate size upper bound    -} ->
   (Coord, Int) {- ^ coordinate and size of square -}
-maximumSquare areas sizes =
-  fst $ maximumBy (comparing snd)
-  [ (((x, y), size), rectangleSum areas (x, y) size size)
-  | size <- sizes
-  , let u = dim-size+1, x <- [1..u], y <- [1..u]
-  ]
+maximumSquare areas sizelo sizehi =
+  fst $ maximize $ L.loop $
+  do size <- range sizelo (sizehi+1)
+     x    <- range 1      (dim-size)
+     y    <- range 1      (dim-size)
+     let !area = rectangleSum areas (x, y) size size
+     return (((x,y),size),area)
+
+  -- I'm using the loops package here because it saves time
+  -- over generating a large list. In addition, maximumBy
+  -- is less performant than writing maximize out with a strict
+  -- fold.
+  where
+    maximize = foldl' (\x y -> if snd x > snd y then x else y) minBound
+
+-- | Iterate by one from the lower bound up-to but excluding the upper bound.
+range ::
+  Int {- ^ initial value -} ->
+  Int {- ^ upper bound   -} ->
+  L.Loop Int
+range lo hi = L.for lo (< hi) (1+)
 
 -- | Compute the sum of the power levels contained in a rectangle
 -- specified by its top-left corner coordinate, width, and height.
