@@ -27,6 +27,7 @@ import           Data.Foldable (maximumBy)
 import qualified Data.Array.Unboxed as A
 
 type Coord = (Int, Int)
+
 type Grid = A.UArray Coord Int
 
 dim :: Int
@@ -62,13 +63,12 @@ powerLevel serial (x, y) = (rackid * y + serial) * rackid `div` 100 `mod` 10 - 5
   where
     rackid = x+10
 
-
 -- | Compute the coordinates and size of the square on the
 -- given Grid that maximizes the sum of the contained power levels.
 maximumSquare ::
-  Grid         {- ^ summed area grid               -} ->
-  [Int]        {- ^ candidate sizes                -} ->
-  (Coord, Int) {- ^ coordinates and size of square -}
+  Grid         {- ^ summed area grid              -} ->
+  [Int]        {- ^ candidate sizes               -} ->
+  (Coord, Int) {- ^ coordinate and size of square -}
 maximumSquare areas sizes =
   fst $ maximumBy (comparing snd)
   [ (((x, y), size), rectangleSum areas (x, y) size size)
@@ -90,7 +90,18 @@ rectangleSum areas (x, y) w h
   - areas A.! (x+w-1,y  -1)
   + areas A.! (x  -1,y  -1)
 
-summedAreaTable :: (Coord -> Int) -> Grid
+-- | Compute the summed-area table given a function that maps
+-- a coordinate to its value. This table can be used with 'rectangleSum'
+-- to efficiently compute the area of a rectangular region of the grid.
+--
+-- Each position in this grid is the sum of the values of all power
+-- levels above and to the left of the current position (inclusive).
+--
+-- See the module header for more information about summed-area tables
+-- and what we're doing with one.
+summedAreaTable ::
+  (Coord -> Int) {- ^ value for coordinate -} ->
+  Grid           {- ^ summed-area table    -}
 summedAreaTable f = convert table -- convert to unboxed array
   where
   -- table is boxed to allow self-reference in definition
