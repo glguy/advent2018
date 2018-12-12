@@ -128,8 +128,36 @@ matchRule (Branch f _) [] = matchRule f []
 
 -- | Construct a binary rule tree from a list of rules.
 toRule :: [([Bool], Bool)] -> Rule
+toRule [] = Leaf False
 toRule [([], x)] = Leaf x
 toRule ys = Branch (toRule a) (toRule b)
   where
     (a,b) = partitionEithers
           $ map (\ (x:xs, y) -> if x then Right (xs, y) else Left (xs, y)) ys
+
+-- $example
+--
+-- >>> import Text.Megaparsec (parseMaybe)
+-- >>> :{
+-- let exampleInput =
+--       "initial state: #..#.#..##......###...###\n\
+--       \\n\
+--       \...## => #\n\
+--       \..#.. => #\n\
+--       \.#... => #\n\
+--       \.#.#. => #\n\
+--       \.#.## => #\n\
+--       \.##.. => #\n\
+--       \.#### => #\n\
+--       \#.#.# => #\n\
+--       \#.### => #\n\
+--       \##.#. => #\n\
+--       \##.## => #\n\
+--       \###.. => #\n\
+--       \###.# => #\n\
+--       \####. => #\n"
+-- :}
+--
+-- >>> let Just (garden, rule) = parseMaybe parseInput exampleInput
+-- >>> part1 (iterate (update rule) garden)
+-- 325
