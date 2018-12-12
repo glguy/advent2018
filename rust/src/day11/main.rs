@@ -22,24 +22,21 @@ fn square_range(size: usize) -> impl Clone + Iterator<Item = usize> {
     1 ..= GRID_SIZE - (size - 1)
 }
 
-fn find_best<I: Iterator<Item = usize>>(grid: &Grid, sizes: I) -> (usize, usize, usize) {
-    let (x,y,s,_) =
-        sizes.flat_map(move |size|
-            square_range(size).flat_map(move |x|
-                square_range(size).map(move |y|
-                    (x, y, size, square(grid, x, y, size)))))
-            .max_by_key(|x| x.3).unwrap();
-
-    (x,y,s)
+fn find_best<I: Iterator<Item = usize>>(grid: &Grid, sizes: I) -> (usize, usize, usize, i64) {
+    sizes.flat_map(move |size|
+        square_range(size).flat_map(move |x|
+            square_range(size).map(move |y|
+                (x, y, size, square(grid, x, y, size)))))
+        .max_by_key(|x| x.3).unwrap()
 }
 
 fn part1(grid: &Grid) -> String {
-    let (x,y,_) = find_best(grid, iter::once(3));
+    let (x,y,_,_) = find_best(grid, iter::once(3));
     format!("{},{}", x, y)
 }
 
 fn part2(grid: &Grid) -> String {
-    let (x,y,s) = find_best(grid, 1 ..= GRID_SIZE);
+    let (x,y,s,_) = find_best(grid, 1 ..= GRID_SIZE);
     format!("{},{},{}", x,y,s)
 }
 
