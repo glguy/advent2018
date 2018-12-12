@@ -20,10 +20,12 @@ module Main (main) where
 
 import Advent               (Parser, getParsedInput)
 import Control.Monad        (replicateM)
-import Data.List            (dropWhileEnd, tails)
-import Data.Either          (partitionEithers)
+import Data.List            (dropWhileEnd, foldl', tails)
+import Data.Maybe           (fromMaybe)
 import Text.Megaparsec.Char (newline)
 import Text.Megaparsec      ((<|>), endBy, eof, many)
+import qualified Data.Vector.Unboxed as Vector
+import           Data.Vector.Unboxed (Vector)
 
 -- | Print the answers to day 12
 main :: IO ()
@@ -84,14 +86,13 @@ loopIteration = go . zip [0..]
 
 -- | Apply the update rule to a garden producing the next generation
 update :: Rule -> Garden -> Garden
-update input (Garden n xs) = shiftGarden (n-2) (mkGarden xs')
+update input (Garden n xs) = shiftGarden (n-3) (mkGarden xs')
   where
-    -- the -2 shift accounts for the first rule match placing
-    -- a plant 2 before xs because we have 4 empty pots prefixed
-    -- onto the garden and we assume that all rules match 5 pots
+    -- the -3 shift accounts for the first rule match placing
+    -- a plant 3 before xs because we first match the empty plot
+    -- before feeding pots in one at a time.
     xs' = map (matchRule input)
-        $ tails
-        $ False : False : False : False : xs
+        $ scanl pushBit 0 (xs ++ replicate 4 False)
 
 -- normalized garden representation ------------------------------------
 
@@ -113,27 +114,24 @@ shiftGarden offset (Garden n xs) = Garden (offset + n) xs
 
 -- rule matching -------------------------------------------------------
 
--- | Binary tree for more efficient rule matching
-data Rule
-  = Branch Rule Rule -- ^ branch left for empty, right for plant
-  | Leaf Bool        -- ^ end of rule, replace with this value
-  deriving (Read, Show)
+-- | Rules take a window of 5 pots as bits forming an index between 0 and 31.
+-- The vector has a True for windows where a plant should be emitted.
+newtype Rule = Rule (Vector Bool)
 
 -- | Match the prefix of a garden against a rule returning the
 -- new plant to place at that location.
-matchRule :: Rule -> [Bool] -> Bool
-matchRule (Leaf x) _ = x
-matchRule (Branch f t) (x:xs) = matchRule (if x then t else f) xs
-matchRule (Branch f _) [] = matchRule f []
+matchRule :: Rule -> Int -> Bool
+matchRule (Rule v) i = fromMaybe False (v Vector.!? i)
 
 -- | Construct a binary rule tree from a list of rules.
 toRule :: [([Bool], Bool)] -> Rule
-toRule [] = Leaf False
-toRule [([], x)] = Leaf x
-toRule ys = Branch (toRule a) (toRule b)
-  where
-    (a,b) = partitionEithers
-          $ map (\ (x:xs, y) -> if x then Right (xs, y) else Left (xs, y)) ys
+toRule entries = Rule (Vector.generate 32 (`elem` plants))
+  where plants = [ foldl' pushBit 0 bs | (bs, True) <- entries ]
+
+-- | Update the 5-bit window with a new low-endian bit, shifting
+-- all the other bits up by one.
+pushBit :: Int -> Bool -> Int
+pushBit acc x = (acc * 2 + if x then 1 else 0) `rem` 32
 
 -- $example
 --
