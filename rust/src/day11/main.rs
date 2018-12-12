@@ -1,4 +1,4 @@
-use itertools::iproduct;
+use std::iter;
 
 const SERIAL: i64 = 8868;
 const GRID_SIZE: usize = 300;
@@ -17,29 +17,29 @@ fn square(grid: &Grid, x: usize, y: usize, w: usize) -> i64 {
     + grid[x-1][y-1]
 }
 
-/// Iterator over all of the valid grid starting positions for
-/// squares of a given size.
-fn square_range(size: usize) -> impl Clone + Iterator<Item = (usize, usize)> {
-    let range = 1 .. GRID_SIZE - (size - 1) + 1;
-    iproduct!(range.clone(), range)
+/// Iterator over valid x or y coordinates for a particular square size
+fn square_range(size: usize) -> impl Clone + Iterator<Item = usize> {
+    1 ..= GRID_SIZE - (size - 1)
+}
+
+fn find_best<I: Iterator<Item = usize>>(grid: &Grid, sizes: I) -> (usize, usize, usize) {
+    let (x,y,s,_) =
+        sizes.flat_map(move |size|
+            square_range(size).flat_map(move |x|
+                square_range(size).map(move |y|
+                    (x, y, size, square(grid, x, y, size)))))
+            .max_by_key(|x| x.3).unwrap();
+
+    (x,y,s)
 }
 
 fn part1(grid: &Grid) -> String {
-    let (x,y,_) =
-    square_range(3)
-    .map(move |(x,y)| (x, y, square(grid, x, y, 3)))
-    .max_by_key(|x| x.2).unwrap();
-
+    let (x,y,_) = find_best(grid, iter::once(3));
     format!("{},{}", x, y)
 }
 
 fn part2(grid: &Grid) -> String {
-    let (x,y,s,_) = 
-        (1 ..= GRID_SIZE).flat_map(move |s|
-            square_range(s)
-                .map(move |(x,y)| (x,y,s, square(grid,x,y,s))))
-        .max_by_key(|k| k.3).unwrap();
-
+    let (x,y,s) = find_best(grid, 1 ..= GRID_SIZE);
     format!("{},{},{}", x,y,s)
 }
 
