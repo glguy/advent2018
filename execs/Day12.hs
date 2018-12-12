@@ -19,10 +19,11 @@ where they repeatedly just shift in one direction or another.
 module Main (main) where
 
 import Advent               (Parser, getParsedInput)
+import Control.Monad        (replicateM)
 import Data.List            (dropWhileEnd, tails)
 import Data.Either          (partitionEithers)
 import Text.Megaparsec.Char (newline)
-import Text.Megaparsec      ((<|>), endBy, eof, many, some)
+import Text.Megaparsec      ((<|>), endBy, eof, many)
 
 -- | Print the answers to day 12
 main :: IO ()
@@ -47,7 +48,7 @@ parsePlant = True <$ "#" <|> False <$ "."
 
 -- | Parse a whole rule of the form @.#.#. => #@
 parseRule :: Parser ([Bool], Bool)
-parseRule = (,) <$> some parsePlant <* " => " <*> parsePlant
+parseRule = (,) <$> replicateM 5 parsePlant <* " => " <*> parsePlant
 
 ------------------------------------------------------------------------
 
