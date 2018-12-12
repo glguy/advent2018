@@ -18,14 +18,13 @@ where they repeatedly just shift in one direction or another.
 {-# Language OverloadedStrings, NumDecimals #-}
 module Main (main) where
 
-import Advent               (Parser, getParsedInput)
-import Control.Monad        (replicateM)
-import Data.List            (dropWhileEnd, foldl', tails)
-import Data.Maybe           (fromMaybe)
-import Text.Megaparsec.Char (newline)
-import Text.Megaparsec      ((<|>), endBy, eof, many)
+import           Advent               (Parser, getParsedInput)
+import           Control.Monad        (replicateM)
+import           Data.List            (dropWhileEnd, foldl', tails)
+import           Text.Megaparsec.Char (newline)
+import           Text.Megaparsec      ((<|>), endBy, eof, many)
+import           Data.Vector.Unboxed  (Vector)
 import qualified Data.Vector.Unboxed as Vector
-import           Data.Vector.Unboxed (Vector)
 
 -- | Print the answers to day 12
 main :: IO ()
@@ -41,16 +40,17 @@ main =
 parseInput :: Parser (Garden, Rule)
 parseInput =
   do start   <- "initial state: " *> many parsePlant <* newline <* newline
-     entries <- parseRule `endBy` newline <* eof
+     entries <- many parseRule <* eof
      pure (mkGarden start, toRule entries)
 
 -- | Parse a single plant as a @#@ or empty spae @.@
 parsePlant :: Parser Bool
-parsePlant = True <$ "#" <|> False <$ "."
+parsePlant = True  <$ "#"
+         <|> False <$ "."
 
--- | Parse a whole rule of the form @.#.#. => #@
+-- | Parse a whole rule production of the form @.#.#. => #@
 parseRule :: Parser ([Bool], Bool)
-parseRule = (,) <$> replicateM 5 parsePlant <* " => " <*> parsePlant
+parseRule = (,) <$> replicateM 5 parsePlant <* " => " <*> parsePlant <* newline
 
 ------------------------------------------------------------------------
 
@@ -92,7 +92,8 @@ update input (Garden n xs) = shiftGarden (n-3) (mkGarden xs')
     -- a plant 3 before xs because we first match the empty plot
     -- before feeding pots in one at a time.
     xs' = map (matchRule input)
-        $ scanl pushBit 0 (xs ++ replicate 4 False)
+        $ scanl pushBit 0
+        $ xs ++ replicate 4 False -- flush window with 4 more empties
 
 -- normalized garden representation ------------------------------------
 
@@ -103,12 +104,18 @@ data Garden = Garden !Int [Bool] -- ^ first index and pots
 
 -- | Make a new garden value given a list of plants starting
 -- with the zero pot.
+--
+-- >>> mkGarden [False, True, True, False]
+-- Garden 1 [True,True]
 mkGarden :: [Bool] -> Garden
 mkGarden xs = Garden (length a) (dropWhileEnd not b)
   where
     (a,b) = break id xs
 
 -- | Move all pot locations in a garden by a given offset.
+--
+-- >>> shiftGarden 4 (Garden 3 [True, False, True])
+-- Garden 7 [True,False,True]
 shiftGarden :: Int -> Garden -> Garden
 shiftGarden offset (Garden n xs) = Garden (offset + n) xs
 
@@ -120,18 +127,30 @@ newtype Rule = Rule (Vector Bool)
 
 -- | Match the prefix of a garden against a rule returning the
 -- new plant to place at that location.
-matchRule :: Rule -> Int -> Bool
-matchRule (Rule v) i = fromMaybe False (v Vector.!? i)
+matchRule :: Rule -> Int {- ^ 5-bit window -} -> Bool
+matchRule (Rule v) i = v Vector.! i
 
--- | Construct a binary rule tree from a list of rules.
+-- | Construct a efficient rule lookup mechanism given a list of
+-- rule productions. Each of the rule productions will correspond to
+-- an element in the vector that will be True if a plant is produced.
 toRule :: [([Bool], Bool)] -> Rule
 toRule entries = Rule (Vector.generate 32 (`elem` plants))
-  where plants = [ foldl' pushBit 0 bs | (bs, True) <- entries ]
+  where
+    plants = [ foldl' pushBit 0 bs | (bs, True) <- entries ]
 
 -- | Update the 5-bit window with a new low-endian bit, shifting
 -- all the other bits up by one.
-pushBit :: Int -> Bool -> Int
-pushBit acc x = (acc * 2 + if x then 1 else 0) `rem` 32
+--
+-- >>> :set -XBinaryLiterals
+-- >>> pushBit 0b10011 False == 0b00110
+-- True
+-- >>> pushBit 0b10011 True == 0b00111
+-- True
+pushBit ::
+  Int  {- ^ five-bit window -} ->
+  Bool {- ^ new bit         -} ->
+  Int  {- ^ five-bit window -}
+pushBit acc x = (acc * 2 + fromEnum x) `rem` 32
 
 -- $example
 --
