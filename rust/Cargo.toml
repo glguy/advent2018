@@ -6,6 +6,7 @@ edition = '2018'
 
 [dependencies]
 scan_fmt = "^0.1"
+itertools = ""
 
 [[bin]]
 name = "day01"
@@ -18,3 +19,7 @@ path = "src/day02/main.rs"
 [[bin]]
 name = "day07"
 path = "src/day07/main.rs"
+
+[[bin]]
+name = "day11"
+path = "src/day11/main.rs"

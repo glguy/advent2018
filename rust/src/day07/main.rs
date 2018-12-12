@@ -52,10 +52,10 @@ fn cost(c: char) -> u64 {
 }
 
 fn get_input() -> Vec<(char, char)> {
-    io::stdin().lock().lines().map(|x| parse_record(x.unwrap())).collect()
+    io::stdin().lock().lines().map(|x| parse_record(&x.unwrap())).collect()
 }
 
-fn parse_record(record: String) -> (char, char) {
+fn parse_record(record: &str) -> (char, char) {
     let (x,y) = scan_fmt!(&record, "Step {[A-Z]} must be finished before step {[A-Z]} can begin.", char, char);
     (x.unwrap(), y.unwrap())
 }

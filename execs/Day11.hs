@@ -55,6 +55,11 @@ part1 areas = intercalate "," (map show [x,y])
     ((x,y),_) = maximumSquare areas 3 3
 
 -- | Compute the position and size of the largest-valued square on the grid
+--
+-- >>> part2 (summedAreaTable (powerLevel 18))
+-- "90,269,16"
+-- >>> part2 (summedAreaTable (powerLevel 42))
+-- "232,251,12"
 part2 :: Grid -> String
 part2 areas = intercalate "," (map show [x,y,s])
   where
