@@ -19,58 +19,83 @@ know whether or not it works for other people's inputs.
 module Main (main) where
 
 import Advent
-import Data.List (tails)
+import Data.List (tails, dropWhileEnd)
+import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
-
-magicBuffer :: Int
-magicBuffer = 25
 
 -- | Print the answers to day 12
 main :: IO ()
 main =
-  do input <- map parseLine <$> getInput 12
-     let xs = iterate (update input) initial
+  do (initial, rules) <- parseInput <$> getInput 12
+     let xs = iterate (update rules) initial
      print (part1 xs)
      print (part2 xs)
 
-part1 :: [[Bool]] -> Int
+parseInput :: [String] -> (Garden, Rule)
+parseInput (initialStateLine : "" : ruleLines)
+  | ["initial", "state:", garden] <- words initialStateLine =
+     ( mkGarden 0 (map isPlant garden)
+     , toRule (map parseRuleLine ruleLines))
+parseInput _ = error "parseInput failed"
+
+parseRuleLine :: String -> ([Bool], Bool)
+parseRuleLine str =
+  case words str of
+    [a,"=>",[c]] -> (map isPlant a, isPlant c)
+    _            -> error ("parseLine: " ++ str)
+
+part1 :: [Garden] -> Int
 part1 xs = eval 0 (xs !! 20)
 
-part2 :: [[Bool]] -> Int
-part2 xs = eval (50e9 - i) row
+part2 :: [Garden] -> Int
+part2 xs = eval (step * (50e9 - i)) row
   where
-    (i, row) = loopIteration (take 200 xs)
+    (i, step, row) = loopIteration xs
 
-loopIteration :: [[Bool]] -> (Int, [Bool])
+loopIteration :: [Garden] -> (Int, Int, Garden)
 loopIteration = go . zip [0..]
   where
-    go ( (i,x) : rest@((_,y) : _))
-      | False:x == y++[False] = (i, x)
+    go ( (i,Garden n xs) : rest@((_,Garden m ys) : _))
+      | xs == ys  = (i, m-n, Garden n xs)
       | otherwise = go rest
 
-eval :: Int -> [Bool] -> Int
-eval offset xs = sum [ offset + i | (i, True) <- zip [-magicBuffer ..] xs ]
+eval :: Int -> Garden -> Int
+eval offset (Garden n xs) = sum [ offset + i | (i, True) <- zip [n ..] xs ]
 
-update :: [([Bool],Bool)] -> [Bool] -> [Bool]
-update input xs
-  = map (\i -> fromMaybe False (lookup i input))
-  $ takeWhile (\x -> length x == 5)
-  $ map (take 5)
-  $ tails
-  $ False : False : xs ++ [False, False]
+update :: Rule -> Garden -> Garden
+update input (Garden n xs)
+  = Garden (n + length leading - 2) xs'
+  where
+    (leading,xs') = break id
+        $ dropWhileEnd not
+        $ map (matchRule input)
+        $ tails
+        $ False : False : False : False : xs
 
-parseLine :: String -> ([Bool], Bool)
-parseLine str =
-  case words str of
-    [a,"=>",[c]] -> (map ('#'==) a, '#'==c)
-    _ -> error ("parseLine: " ++ str)
+isPlant :: Char -> Bool
+isPlant x = '#' == x
 
-initial :: [Bool]
-initial
-  = map ('#' ==)
-  $ (replicate magicBuffer '.')
-  ++ real ++ replicate 1000 '.'
+data Garden = Garden !Int [Bool]
+  deriving (Read, Show)
 
-real :: String
-real = ".##..##..####..#.#.#.###....#...#..#.#.#..#...\
-       \#....##.#.#.#.#.#..######.##....##.###....##..#.####.#"
+mkGarden :: Int -> [Bool] -> Garden
+mkGarden n xs = Garden (n + length a) b
+  where
+    (a,b) = break id xs
+
+data Rule
+  = Branch Rule Rule
+  | Leaf Bool
+  deriving (Read, Show)
+
+matchRule :: Rule -> [Bool] -> Bool
+matchRule (Leaf x) _ = x
+matchRule (Branch f t) (x:xs) = matchRule (if x then t else f) xs
+matchRule (Branch f _) [] = matchRule f []
+
+toRule :: [([Bool], Bool)] -> Rule
+toRule [([], x)] = Leaf x
+toRule ys = Branch (toRule a) (toRule b)
+  where
+    (a,b) = partitionEithers
+          $ map (\ (x:xs, y) -> if x then Right (xs, y) else Left (xs, y)) ys
