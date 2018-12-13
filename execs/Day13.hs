@@ -6,6 +6,7 @@ License     : ISC
 Maintainer  : emertens@gmail.com
 
 <https://adventofcode.com/2018/day/13>
+
 -}
 module Main (main) where
 
@@ -14,25 +15,21 @@ import qualified Data.Map as Map
 import           Data.Map (Map)
 import qualified Data.Vector as V
 import           Data.Vector (Vector)
-import           Data.Tuple (swap)
-
--- | Directions determine where a cart will move to on its
--- next tick.
-data Dir = North | South | East | West
-  deriving Show
 
 -- | Turns determine the behavior at an intersection
-data Turn = NextL | NextR | NextS
-  deriving Show
+data Turn = NextL | NextR | NextS deriving Show
 
 -- | Cart state includes the current direction of travel as well
 -- as the next turn when an intersection is reached.
-data Cart = Cart Dir Turn
-  deriving Show
+data Cart = Cart Velocity Turn deriving Show
 
 -- | Coordinates are stored row then column in order to get
 -- the correct ordering for carts in the simulation.
-type Coord = (Int, Int)
+-- The y axis grows down as specified in the problem!
+data Coord = C !Int !Int deriving (Eq, Ord, Show)
+
+-- | Velocities are stored row then column to match coordinates
+data Velocity = V !Int !Int deriving (Eq, Show)
 
 -- | Road is a random-accessible representation of the track.
 newtype Road = Road (Vector (Vector Char))
@@ -47,8 +44,11 @@ main :: IO ()
 main =
   do road <- parseInput <$> getInput 13
      let carts = findCarts road
-     print (part1 road carts)
-     print (part2 road carts)
+     putStrLn (part1 road carts)
+     putStrLn (part2 road carts)
+
+format :: Coord -> String
+format (C y x) = show x ++ "," ++ show y
 
 -- | Run the simulation and report the location of the first collision.
 --
@@ -64,9 +64,9 @@ main =
 --
 -- >>> let carts = findCarts road
 -- >>> part1 road carts
--- (7,3)
-part1 :: Road -> CartQueue -> Coord
-part1 road carts = simulate (\pos _ _ -> swap pos) road carts
+-- "7,3"
+part1 :: Road -> CartQueue -> String
+part1 road carts = format (simulate (\pos _ _ -> pos) road carts)
 
 -- | Run the simulation and report the position of the final car.
 --
@@ -83,12 +83,13 @@ part1 road carts = simulate (\pos _ _ -> swap pos) road carts
 --
 -- >>> let carts = findCarts road
 -- >>> part2 road carts
--- (6,4)
-part2 :: Road -> CartQueue -> Coord
-part2 road carts = simulate onWreck road carts
+-- "6,4"
+part2 :: Road -> CartQueue -> String
+part2 road carts = format (simulate onWreck road carts)
   where
     -- when a car wrecks, clear that location and resume the simulation
-    onWreck pos ready done = tick onWreck road (Map.delete pos ready) (Map.delete pos done)
+    onWreck pos ready done =
+      tick onWreck road (Map.delete pos ready) (Map.delete pos done)
 
 -- | Parse the input file as a 'Road'
 parseInput :: [String] -> Road
@@ -96,44 +97,45 @@ parseInput = Road . V.fromList . map V.fromList
 
 -- | Look up the road element at a particular coordinate
 indexRoad :: Road -> Coord -> Char
-indexRoad (Road v) (i, j) = v V.! i V.! j
+indexRoad (Road v) (C i j) = v V.! i V.! j
 
 -- | Find all the initial locations and directions of the carts.
-findCarts :: Road -> Map Coord Cart
-findCarts (Road xs) =
+findCarts :: Road -> CartQueue
+findCarts (Road rs) =
   Map.fromList
-    [ ((i,j), Cart dir NextL)
-    | (i,x) <- zip [0..] (V.toList xs)
-    , (j,y) <- zip [0..] (V.toList x)
-    , dir   <- charDir y
+    [ (C y x, Cart dir NextL)
+    | (y,r) <- zip [0..] (V.toList rs)
+    , (x,c) <- zip [0..] (V.toList r)
+    , dir   <- case c of
+                 '^' -> [north]
+                 'v' -> [south]
+                 '>' -> [east ]
+                 '<' -> [west ]
+                 _   -> []
     ]
-  where
-    charDir '^' = [North]
-    charDir 'v' = [South]
-    charDir '<' = [West ]
-    charDir '>' = [East ]
-    charDir _   = []
 
 -- | Run the simulation to completion. Take the wreck behavior
 -- as a parameter to allow part1 and part2 to share the same
--- simulation.
+-- simulation. When a cart collides with another control of
+-- the simulation will switch to the wreck parameter.
 simulate ::
-  (Coord -> CartQueue -> CartQueue -> Coord) ->
-  Road ->
-  CartQueue ->
-  Coord
+  (Coord -> CartQueue -> CartQueue -> Coord)
+            {- ^ wreck behavior: position, ready queue, done queue -} ->
+  Road      {- ^ road                                              -} ->
+  CartQueue {- ^ starting cart states                              -} ->
+  Coord     {- ^ final cart position                               -}
 simulate onWreck road carts
-  | [(i,j)] <- Map.keys carts = (j,i)
-  | otherwise                 = tick onWreck road carts Map.empty
+  | [pos] <- Map.keys carts = pos
+  | otherwise               = tick onWreck road carts Map.empty
 
 -- | Run a single tick of the simulation.
 tick ::
   (Coord -> CartQueue -> CartQueue -> Coord)
-            {- ^ wreck behavior          -} ->
-  Road      {- ^ road                    -} ->
-  CartQueue {- ^ carts ready to  move    -} ->
-  CartQueue {- ^ carts moved this tick   -} ->
-  Coord     {- ^ final coordinate answer -}
+            {- ^ wreck behavior: position, ready queue, done queue -} ->
+  Road      {- ^ road                                              -} ->
+  CartQueue {- ^ carts ready to  move                              -} ->
+  CartQueue {- ^ carts moved this tick                             -} ->
+  Coord     {- ^ final coordinate answer                           -}
 tick onWreck road carts done =
   case Map.minViewWithKey carts of
     Nothing -> simulate onWreck road done
@@ -146,57 +148,66 @@ tick onWreck road carts done =
 
 -- | Compute the next state of a cart when it is its turn to move
 drive :: Road -> Coord -> Cart -> (Coord, Cart)
-drive road (i,j) (Cart dir next) = (pos', Cart dir' next')
+drive road pos (Cart dir next) = (pos', Cart dir' next')
   where
-    seg = indexRoad road pos'
+    pos' = pos `addVelocity` dir
 
-    pos' =
-      case dir of
-        North -> (i-1,j)
-        South -> (i+1,j)
-        West  -> (i,j-1)
-        East  -> (i,j+1)
-
-    next' =
-      case seg of
-        '+' -> nextTurn next
-        _   -> next
-
-    dir' =
-      case (seg, dir) of
-        ('\\', North) -> West
-        ('\\', South) -> East
-        ('\\', East ) -> South
-        ('\\', West ) -> North
-        ('/' , North) -> East
-        ('/' , South) -> West
-        ('/' , East ) -> North
-        ('/' , West ) -> South
-        ('+' , _    ) -> turn next dir
-        _             -> dir
+    (dir', next') =
+      case indexRoad road pos' of
+        '\\' -> (invert    dir, next         )
+        '/'  -> (invert'   dir, next         )
+        '+'  -> (turn next dir, nextTurn next)
+        _    -> (dir          , next         )
 
 -- | Apply a turn to a direction.
-turn :: Turn -> Dir -> Dir
+turn :: Turn -> Velocity -> Velocity
 turn NextL = turnLeft
 turn NextR = turnRight
 turn NextS = id
 
+-- | Invert a velocity along a line y=x. (remember y grows down)
+--
+-- >>> map invert [north, south, east, west] == [west, east, south, north]
+-- True
+invert :: Velocity -> Velocity
+invert (V dy dx) = V dx dy
+
+-- | Invert a velocity along a line y = -x (remember y grows down)
+-- >>> map invert' [north, south, east, west] == [east, west, north, south]
+-- True
+invert' :: Velocity -> Velocity
+invert' (V dy dx) = V (-dx) (-dy)
+
 -- | Change a direction counter-clockwise
-turnLeft :: Dir -> Dir
-turnLeft North = West
-turnLeft West  = South
-turnLeft South = East
-turnLeft East  = North
+--
+-- >>> take 4 (iterate turnLeft north) == [north, west, south, east]
+-- True
+turnLeft :: Velocity -> Velocity
+turnLeft (V dy dx) = V (-dx) dy
 
 -- | Change a direction clockwise
-turnRight :: Dir -> Dir
-turnRight North = East
-turnRight East  = South
-turnRight South = West
-turnRight West  = North
+--
+-- >>> take 4 (iterate turnRight north) == [north, east, south, west]
+-- True
+turnRight :: Velocity -> Velocity
+turnRight (V dy dx) = V dx (-dy)
 
 -- | Advance a turn direction to the next one in sequence.
 nextTurn :: Turn -> Turn
 nextTurn NextL = NextS
 nextTurn NextS = NextR
 nextTurn NextR = NextL
+
+-- | Add a velocity to a coordinate.
+--
+-- >>> addVelocity (C 10 20) north
+-- C 9 20
+addVelocity :: Coord -> Velocity -> Coord
+addVelocity (C y x) (V dy dx) = C (y + dy) (x + dx)
+
+-- | Unit vectors in cardinal directions.
+north, east, south, west :: Velocity
+north = V (-1) 0
+south = V 1 0
+east  = V 0 1
+west  = V 0 (-1)

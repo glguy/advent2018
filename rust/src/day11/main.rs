@@ -18,7 +18,7 @@ fn square(grid: &Grid, x: usize, y: usize, w: usize) -> i64 {
 }
 
 /// Iterator over valid x or y coordinates for a particular square size
-fn square_range(size: usize) -> impl Clone + Iterator<Item = usize> {
+fn square_range(size: usize) -> impl Iterator<Item = usize> {
     1 ..= GRID_SIZE - (size - 1)
 }
 
