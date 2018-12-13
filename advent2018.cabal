@@ -89,7 +89,7 @@ executable Day11
 
 executable Day12
   main-is:             Day12.hs
-  build-depends:       advent2018, base
+  build-depends:       advent2018, base, megaparsec, vector
   hs-source-dirs:      execs
   default-language:    Haskell2010
 
