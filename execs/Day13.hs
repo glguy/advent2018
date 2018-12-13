@@ -11,7 +11,7 @@ Maintainer  : emertens@gmail.com
 module Main (main) where
 
 import           Advent (getInput)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import           Data.Map (Map)
 import qualified Data.Vector as V
 import           Data.Vector (Vector)
@@ -21,7 +21,7 @@ data Turn = NextL | NextR | NextS deriving Show
 
 -- | Cart state includes the current direction of travel as well
 -- as the next turn when an intersection is reached.
-data Cart = Cart Velocity Turn deriving Show
+data Cart = Cart !Velocity !Turn deriving Show
 
 -- | Coordinates are stored row then column in order to get
 -- the correct ordering for carts in the simulation.
@@ -40,22 +40,30 @@ type CartQueue = Map Coord Cart
 
 
 -- | Print the answers to day 13
+--
+-- >>> :main
+-- 50,54
+-- 50,100
 main :: IO ()
 main =
-  do road <- parseInput <$> getInput 13
+  do road <- parseRoad <$> getInput 13
      let carts = findCarts road
      putStrLn (part1 road carts)
      putStrLn (part2 road carts)
 
+-- | Format a coordinate into X,Y notation.
+--
+-- >>> format (C 10 20)
+-- "20,10"
 format :: Coord -> String
 format (C y x) = show x ++ "," ++ show y
 
 -- | Run the simulation and report the location of the first collision.
 --
--- >>> let road = parseInput ["><"] in part1 road (findCarts road)
+-- >>> let road = parseRoad ["><"] in part1 road (findCarts road)
 -- "1,0"
 -- >>> :{
--- let road = parseInput
+-- let road = parseRoad
 --       ["/->-\\        "
 --       ,"|   |  /----\\"
 --       ,"| /-+--+-\\  |"
@@ -72,10 +80,10 @@ part1 road carts = format (simulate (\pos _ _ -> pos) road carts)
 
 -- | Run the simulation and report the position of the final car.
 --
--- >>> let road = parseInput ["><>-"] in part2 road (findCarts road)
+-- >>> let road = parseRoad ["><>-"] in part2 road (findCarts road)
 -- "3,0"
 -- >>> :{
--- let road = parseInput
+-- let road = parseRoad
 --       ["/>-<\\  "
 --       ,"|   |  "
 --       ,"| /<+-\\"
@@ -96,8 +104,8 @@ part2 road carts = format (simulate onWreck road carts)
       tick onWreck road (Map.delete pos ready) (Map.delete pos done)
 
 -- | Parse the input file as a 'Road'
-parseInput :: [String] -> Road
-parseInput = Road . V.fromList . map V.fromList
+parseRoad :: [String] -> Road
+parseRoad = Road . V.fromList . map V.fromList
 
 -- | Look up the road element at a particular coordinate
 indexRoad :: Road -> Coord -> Char
