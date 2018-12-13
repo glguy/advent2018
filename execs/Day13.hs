@@ -52,6 +52,8 @@ format (C y x) = show x ++ "," ++ show y
 
 -- | Run the simulation and report the location of the first collision.
 --
+-- >>> let road = parseInput ["><"] in part1 road (findCarts road)
+-- "1,0"
 -- >>> :{
 -- let road = parseInput
 --       ["/->-\\        "
@@ -70,6 +72,8 @@ part1 road carts = format (simulate (\pos _ _ -> pos) road carts)
 
 -- | Run the simulation and report the position of the final car.
 --
+-- >>> let road = parseInput ["><>-"] in part2 road (findCarts road)
+-- "3,0"
 -- >>> :{
 -- let road = parseInput
 --       ["/>-<\\  "
