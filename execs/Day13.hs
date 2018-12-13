@@ -51,10 +51,39 @@ main =
      print (part2 road carts)
 
 -- | Run the simulation and report the location of the first collision.
+--
+-- >>> :{
+-- let road = parseInput
+--       ["/->-\\        "
+--       ,"|   |  /----\\"
+--       ,"| /-+--+-\\  |"
+--       ,"| | |  | v  |"
+--       ,"\\-+-/  \\-+--/"
+--       ,"  \\------/   "]
+-- :}
+--
+-- >>> let carts = findCarts road
+-- >>> part1 road carts
+-- (7,3)
 part1 :: Road -> CartQueue -> Coord
 part1 road carts = simulate (\pos _ _ -> swap pos) road carts
 
 -- | Run the simulation and report the position of the final car.
+--
+-- >>> :{
+-- let road = parseInput
+--       ["/>-<\\  "
+--       ,"|   |  "
+--       ,"| /<+-\\"
+--       ,"| | | v"
+--       ,"\\>+</ |"
+--       ,"  |   ^"
+--       ,"  \\<->/"]
+-- :}
+--
+-- >>> let carts = findCarts road
+-- >>> part2 road carts
+-- (6,4)
 part2 :: Road -> CartQueue -> Coord
 part2 road carts = simulate onWreck road carts
   where
@@ -73,17 +102,17 @@ indexRoad (Road v) (i, j) = v V.! i V.! j
 findCarts :: Road -> Map Coord Cart
 findCarts (Road xs) =
   Map.fromList
-  [ cart
-  | (i,x) <- zip [0..] (V.toList xs)
-  , (j,y) <- zip [0..] (V.toList x)
-  , cart <- aux i j y
-  ]
+    [ ((i,j), Cart dir NextL)
+    | (i,x) <- zip [0..] (V.toList xs)
+    , (j,y) <- zip [0..] (V.toList x)
+    , dir   <- charDir y
+    ]
   where
-    aux i j '^' = [((i,j), Cart North NextL)]
-    aux i j 'v' = [((i,j), Cart South NextL)]
-    aux i j '<' = [((i,j), Cart West  NextL)]
-    aux i j '>' = [((i,j), Cart East  NextL)]
-    aux _ _ _ = []
+    charDir '^' = [North]
+    charDir 'v' = [South]
+    charDir '<' = [West ]
+    charDir '>' = [East ]
+    charDir _   = []
 
 -- | Run the simulation to completion. Take the wreck behavior
 -- as a parameter to allow part1 and part2 to share the same
