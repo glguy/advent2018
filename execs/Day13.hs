@@ -13,8 +13,7 @@ module Main (main) where
 import           Advent (getInput)
 import qualified Data.Map.Strict as Map
 import           Data.Map (Map)
-import qualified Data.Vector as V
-import           Data.Vector (Vector)
+import qualified Data.Array.Unboxed as A
 
 -- | Turns determine the behavior at an intersection
 data Turn = NextL | NextR | NextS deriving Show
@@ -32,7 +31,7 @@ data Coord = C !Int !Int deriving (Eq, Ord, Show)
 data Velocity = V !Int !Int deriving (Eq, Show)
 
 -- | Road is a random-accessible representation of the track.
-newtype Road = Road (Vector (Vector Char))
+newtype Road = Road (A.UArray (Int, Int) Char)
 
 -- | Carts are stored in a where they will naturally be ordered
 -- in the way that the simulation calls for.
@@ -97,81 +96,85 @@ part1 road carts = format (simulate (\pos _ _ -> pos) road carts)
 -- >>> part2 road carts
 -- "6,4"
 part2 :: Road -> CartQueue -> String
-part2 road carts = format (simulate onWreck road carts)
+part2 road carts = format (simulate onCollision road carts)
   where
-    -- when a car wrecks, clear that location and resume the simulation
-    onWreck pos ready done =
-      tick onWreck road (Map.delete pos ready) (Map.delete pos done)
+    -- when a car collides, clear that location and resume the simulation
+    onCollision pos ready done =
+      tick onCollision road (Map.delete pos ready) (Map.delete pos done)
 
 -- | Parse the input file as a 'Road'
 parseRoad :: [String] -> Road
-parseRoad = Road . V.fromList . map V.fromList
+parseRoad rs = Road (A.array ((0,0),(h-1,w-1)) assocs)
+  where
+    w      = length (head rs)
+    h      = length rs
+    assocs = [((y,x),c) | (y,r) <- zip [0..] rs
+                        , (x,c) <- zip [0..] r]
 
 -- | Look up the road element at a particular coordinate
 indexRoad :: Road -> Coord -> Char
-indexRoad (Road v) (C i j) = v V.! i V.! j
+indexRoad (Road v) (C i j) = v A.! (i,j)
 
--- | Find all the initial locations and directions of the carts.
+-- | Find all the initial locations and velocities of the carts.
 findCarts :: Road -> CartQueue
 findCarts (Road rs) =
   Map.fromList
-    [ (C y x, Cart dir NextL)
-    | (y,r) <- zip [0..] (V.toList rs)
-    , (x,c) <- zip [0..] (V.toList r)
-    , dir   <- case c of
-                 '^' -> [north]
-                 'v' -> [south]
-                 '>' -> [east ]
-                 '<' -> [west ]
-                 _   -> []
+    [ (C y x, Cart vel NextL)
+    | ((y,x),c) <- A.assocs rs
+    , vel <- case c of
+               '^' -> [north]
+               'v' -> [south]
+               '>' -> [east ]
+               '<' -> [west ]
+               _   -> []
     ]
 
--- | Run the simulation to completion. Take the wreck behavior
+-- | Run the simulation to completion. Take the collision behavior
 -- as a parameter to allow part1 and part2 to share the same
 -- simulation. When a cart collides with another control of
--- the simulation will switch to the wreck parameter.
+-- the simulation will switch to the collision parameter.
 simulate ::
   (Coord -> CartQueue -> CartQueue -> Coord)
-            {- ^ wreck behavior: position, ready queue, done queue -} ->
-  Road      {- ^ road                                              -} ->
-  CartQueue {- ^ starting cart states                              -} ->
-  Coord     {- ^ final cart position                               -}
-simulate onWreck road carts
+            {- ^ collision behavior: position, ready queue, done queue -} ->
+  Road      {- ^ road                                                  -} ->
+  CartQueue {- ^ starting cart states                                  -} ->
+  Coord     {- ^ final cart position                                   -}
+simulate onCollision road carts
   | [pos] <- Map.keys carts = pos
-  | otherwise               = tick onWreck road carts Map.empty
+  | otherwise               = tick onCollision road carts Map.empty
 
 -- | Run a single tick of the simulation.
 tick ::
   (Coord -> CartQueue -> CartQueue -> Coord)
-            {- ^ wreck behavior: position, ready queue, done queue -} ->
-  Road      {- ^ road                                              -} ->
-  CartQueue {- ^ carts ready to  move                              -} ->
-  CartQueue {- ^ carts moved this tick                             -} ->
-  Coord     {- ^ final coordinate answer                           -}
-tick onWreck road carts done =
+            {- ^ collision behavior: position, ready queue, done queue -} ->
+  Road      {- ^ road                                                  -} ->
+  CartQueue {- ^ carts ready to move                                   -} ->
+  CartQueue {- ^ carts moved this tick                                 -} ->
+  Coord     {- ^ final coordinate answer                               -}
+tick onCollision road carts done =
   case Map.minViewWithKey carts of
-    Nothing -> simulate onWreck road done
+    Nothing -> simulate onCollision road done
     Just ((pos, cart), carts')
-      | collision -> onWreck pos' carts' done
-      | otherwise -> tick onWreck road carts' (Map.insert pos' cart' done)
+      | collision -> onCollision pos' carts' done
+      | otherwise -> tick onCollision road carts' (Map.insert pos' cart' done)
       where
-        collision = Map.member pos' done || Map.member pos' carts'
+        collision     = Map.member pos' done || Map.member pos' carts'
         (pos', cart') = drive road pos cart
 
 -- | Compute the next state of a cart when it is its turn to move
 drive :: Road -> Coord -> Cart -> (Coord, Cart)
-drive road pos (Cart dir next) = (pos', Cart dir' next')
+drive road pos (Cart vel next) = (pos', cart')
   where
-    pos' = pos `addVelocity` dir
+    pos' = addVelocity pos vel
 
-    (dir', next') =
+    cart' =
       case indexRoad road pos' of
-        '\\' -> (invert    dir, next         )
-        '/'  -> (invert'   dir, next         )
-        '+'  -> (turn next dir, nextTurn next)
-        _    -> (dir          , next         )
+        '\\' -> Cart (invert    vel) next
+        '/'  -> Cart (invert'   vel) next
+        '+'  -> Cart (turn next vel) (nextTurn next)
+        _    -> Cart vel             next
 
--- | Apply a turn to a direction.
+-- | Apply a turn to a velocity.
 turn :: Turn -> Velocity -> Velocity
 turn NextL = turnLeft
 turn NextR = turnRight
@@ -190,21 +193,21 @@ invert (V dy dx) = V dx dy
 invert' :: Velocity -> Velocity
 invert' (V dy dx) = V (-dx) (-dy)
 
--- | Change a direction counter-clockwise
+-- | Change a velocity counter-clockwise
 --
 -- >>> take 4 (iterate turnLeft north) == [north, west, south, east]
 -- True
 turnLeft :: Velocity -> Velocity
 turnLeft (V dy dx) = V (-dx) dy
 
--- | Change a direction clockwise
+-- | Change a velocity clockwise
 --
 -- >>> take 4 (iterate turnRight north) == [north, east, south, west]
 -- True
 turnRight :: Velocity -> Velocity
 turnRight (V dy dx) = V dx (-dy)
 
--- | Advance a turn direction to the next one in sequence.
+-- | Advance a turn to the next one in sequence.
 nextTurn :: Turn -> Turn
 nextTurn NextL = NextS
 nextTurn NextS = NextR
