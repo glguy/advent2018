@@ -19,6 +19,10 @@ import qualified Data.Map as Map
 import           Data.List (tails)
 
 -- | Print the answers to part 1 and 2 of day 2's task.
+--
+-- >>> :main
+-- 8398
+-- hhvsdkatysmiqjxunezgwcdpr
 main :: IO ()
 main =
   do inp <- getInput 2

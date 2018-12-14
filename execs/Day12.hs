@@ -27,6 +27,10 @@ import           Data.Vector.Unboxed  (Vector)
 import qualified Data.Vector.Unboxed as Vector
 
 -- | Print the answers to day 12
+--
+-- >>> :main
+-- 2823
+-- 2900000001856
 main :: IO ()
 main =
   do (initial, rules) <- getParsedInput 12 parseInput

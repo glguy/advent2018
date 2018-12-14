@@ -18,6 +18,10 @@ import           Data.Ord (comparing)
 import           Data.Time (LocalTime, readSTime, defaultTimeLocale, todMin, localTimeOfDay)
 
 -- | Print solutions to part 1 and part 2 of day 4
+--
+-- >>> :main
+-- 94040
+-- 39940
 main :: IO ()
 main =
   do input <- toSleepMinutes . parseFile <$> getInput 4
