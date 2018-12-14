@@ -19,6 +19,10 @@ import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 
 -- | Print the answers to the problem.
+--
+-- >>> :main
+-- 474
+-- 137041
 main :: IO ()
 main =
   do inp <- parseInput <$> getInput 1

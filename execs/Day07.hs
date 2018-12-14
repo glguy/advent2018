@@ -19,6 +19,10 @@ import Data.Map      (Map)
 import qualified Data.Map as Map
 
 -- | Print the answers to day 7
+--
+-- >>> :main
+-- ACBDESULXKYZIMNTFGWJVPOHRQ
+-- 980
 main :: IO ()
 main =
   do input <- getParsedLines 7 parseDep

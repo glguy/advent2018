@@ -15,6 +15,10 @@ import Data.Char (toLower, toUpper)
 import Data.List (nub)
 
 -- | Print the answers to day 5
+--
+-- >>> :main
+-- 9370
+-- 6390
 main :: IO ()
 main =
   do inp <- head <$> getInput 5

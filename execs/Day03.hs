@@ -16,6 +16,10 @@ import           Data.Map (Map)
 import qualified Data.Map as Map
 
 -- | Print the answers to part 1 and 2 of day 3's task.
+--
+-- >>> :main
+-- 115304
+-- 275
 main :: IO ()
 main =
   do patches <- getParsedLines 3 parsePatch

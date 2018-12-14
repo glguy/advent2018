@@ -17,6 +17,10 @@ import Data.Maybe                (fromMaybe)
 import qualified Control.Monad.Yoctoparsec as Y
 
 -- | Print the answers to day 8
+--
+-- >>> :main
+-- 42196
+-- 33649
 main :: IO ()
 main =
   do input <- parseInput . head <$> getInput 8

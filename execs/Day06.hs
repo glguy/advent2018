@@ -24,6 +24,10 @@ far :: Int
 far = 10000
 
 -- | Print the answers to day 6
+--
+-- >>> :main
+-- 5365
+-- 42513
 main :: IO ()
 main =
   do input <- parseInput <$> getInput 6
