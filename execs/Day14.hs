@@ -9,24 +9,65 @@ Maintainer  : emertens@gmail.com
 -}
 module Main (main) where
 
-import           Advent    (getInput)
-import           Data.List (isPrefixOf, tails, findIndex)
-import           Data.Char (digitToInt)
+import           Advent     (getInput)
+import           Data.Char  (digitToInt)
+import           Data.List  (foldl')
+import           Data.List  (findIndex, isPrefixOf, tails)
+import           Data.Maybe (fromJust)
 import qualified Data.Sequence as Seq
 import           Data.Sequence (Seq)
 
 -- | Print the answers to day 14
 main :: IO ()
 main =
-  do print (take 10 (drop 320851 (3:7:generate initialCooks)))
-     print (findIndex ([3,2,0,8,5,1] `isPrefixOf`) (tails (3:7:generate initialCooks)))
+  do [input] <- traverse readIO =<< getInput 14
+     putStrLn (part1 input)
+     print (part2 input)
 
-data Cooks = Cooks Int Int (Seq Int)
+-- | Find the next 10 recipies after dropping the first @input@ recipies.
+--
+-- >>> part1 5
+-- "0124515891"
+-- >>> part1 18
+-- "9251071085"
+-- >>> part1 2018
+-- "5941429882"
+part1 :: Int -> String
+part1 input = concatMap show (take 10 (drop input entries))
+
+-- | Find the index of the first occurrence of a list of recipies
+--
+-- >>> part2 51589
+-- 9
+-- >>> part2 92510
+-- 18
+-- >>> part2 59414
+-- 2018
+part2 :: Int -> Int
+part2 input = fromJust (findIndex (toDigits input `isPrefixOf`) (tails entries))
+
+data Cooks = Cooks !Int !Int !(Seq Int)
   deriving Show
 
-initialCooks :: Cooks
-initialCooks = Cooks 0 1 (Seq.fromList [3,7])
+-- | Infinite list of recipies created by the elves.
+--
+-- >>> take 12 entries
+-- [3,7,1,0,1,0,1,2,4,5,1,5]
+entries :: [Int]
+entries = 3 : 7 : generate (Cooks 0 1 (Seq.fromList [3,7]))
 
+-- | Turn an integer into a list of its digits
+--
+-- >>> toDigits 0
+-- [0]
+-- >>> toDigits 5
+-- [5]
+-- >>> toDigits 15
+-- [1,5]
+toDigits :: Int -> [Int]
+toDigits = map digitToInt . show
+
+-- | Generate the infinite list of recipies created by the elves.
 generate :: Cooks -> [Int]
 generate (Cooks elf1 elf2 recipies) =
   news ++ generate (Cooks elf1' elf2' recipies')
@@ -34,8 +75,9 @@ generate (Cooks elf1 elf2 recipies) =
     elf1r = Seq.index recipies elf1
     elf2r = Seq.index recipies elf2
 
-    news = map digitToInt (show (elf1r + elf2r))
-    recipies' = recipies <> Seq.fromList news
+    news = toDigits (elf1r + elf2r)
+    recipies' = foldl' (Seq.|>) recipies news
 
-    elf1' = (elf1 + elf1r + 1) `rem` Seq.length recipies'
-    elf2' = (elf2 + elf2r + 1) `rem` Seq.length recipies'
+    elf1' = nextPos elf1 elf1r
+    elf2' = nextPos elf2 elf2r
+    nextPos i r = (i + r + 1) `rem` Seq.length recipies'
