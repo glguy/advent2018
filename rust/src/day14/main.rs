@@ -21,7 +21,7 @@ fn part2() -> usize {
             cursor = 0
         }
         cursor == needle.len()
-    }).unwrap() - needle.len()
+    }).unwrap() - needle.len() + 1
 }
 
 struct Recipies {
@@ -50,6 +50,8 @@ impl Iterator for Recipies {
             let v1 = self.entries[self.elf1];
             let v2 = self.entries[self.elf2];
             let mut new_recipe = v1 + v2;
+
+            // recipies can't get larger than 18 (two digits)
             if new_recipe > 9 {
                 self.entries.push(new_recipe / 10);
                 new_recipe -= 10;
