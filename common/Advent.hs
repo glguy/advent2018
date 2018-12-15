@@ -5,6 +5,7 @@ module Advent
 
 import System.Environment
 import Text.Printf
+import Data.Foldable (toList)
 import Text.Megaparsec (anySingle, satisfy, many, parse, parseErrorTextPretty, Parsec, eof)
 import Text.Megaparsec.Char (newline)
 import Text.Megaparsec.Char.Lexer (decimal, signed)
@@ -61,8 +62,8 @@ count p = foldl' (\acc x -> if p x then acc+1 else acc) 0
 -- True
 -- >>> same [1,1,2]
 -- False
-same :: Eq a => [a] -> Bool
-same xs = all (head xs ==) xs
+same :: Foldable t => Eq a => t a -> Bool
+same xs = all (head (toList xs) ==) xs
 
 -- | Returns a list of ways to select an element from a list without
 -- replacement.
