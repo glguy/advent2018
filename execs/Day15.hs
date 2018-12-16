@@ -74,12 +74,13 @@ outcome :: Map Coord Unit -> Int -> Int
 outcome units turns = turns * sum (fmap hp units)
 
 animate :: Dungeon -> [(Map Coord Unit, Int)] -> IO (Map Coord Unit, Int)
-animate d [(u,t)]    = putStrLn (draw d u) >> return (u,t)
-animate d ((u,t):xs) = putStrLn (draw d u) >> animate d xs
+animate d [(u,t)]    = putStrLn (draw t d u) >> return (u,t)
+animate d ((u,t):xs) = putStrLn (draw t d u) >> animate d xs
 
-draw :: Dungeon -> Map (Int,Int) Unit -> String
-draw dungeon units =
+draw :: Int -> Dungeon -> Map (Int,Int) Unit -> String
+draw turns dungeon units =
   unlines
+    $ ("After " ++ show turns ++ " rounds:") :
     [[ case fmap team (Map.lookup (y,x) units) of
         Just Elf -> 'E'
         Just Goblin -> 'G'
