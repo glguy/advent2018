@@ -8,6 +8,7 @@ Maintainer  : emertens@gmail.com
 
 <https://adventofcode.com/2018/day/15>
 -}
+{-# Language MultiWayIf #-}
 module Main (main) where
 
 import           Advent
@@ -169,8 +170,8 @@ layers start valid = go (Set.singleton start)
 -- | Figure out where, if anywhere, this unit wants to move
 route :: Coord -> Unit -> Map (Int, Int) Unit -> Dungeon -> Maybe Coord
 route pos unit units dungeon
-  | isNear pos || null paths = Nothing
-  | otherwise                = Just next
+  | isNear pos = Nothing
+  | otherwise  = search Set.empty (Set.fromList [ (0, start, start) | start <- cardinal pos ])
 
   where
     isOpen loc = inDungeon dungeon loc && not (Map.member loc units)
@@ -180,28 +181,13 @@ route pos unit units dungeon
             Just u -> team u /= team unit
             Nothing -> False
 
-    len (l,_,_) = l
-    (_,_,next)
-      = minimum
-      $ head $ groupBy ((==) `on` len)
-      $ map (\p -> (length p, head p, last p)) paths
-
-    paths = search Set.empty [ [c] | c <- cardinal pos] []
-
-    -- Generate a list of all the shortest paths to an attack position
-    -- using a breadth first search
-    search _ [] [] = []
-    search seen [] others = search seen (reverse others) []
-    search seen ( path@(top:_) : q) others
-      | Set.member top seen || not (isOpen top) = search seen q others
-      | any isEnemy (cardinal top) = path : search (Set.insert top seen) q others
-      | otherwise =
-          search (Set.insert top seen) q
-              $ reverse [ c:path | c <- cardinal top ]
-                ++ others
-
-
-
+    search seen q =
+      do ((dist, dest, start), q) <- Set.minView q
+         if | Set.member dest seen || not (isOpen dest) -> search seen q
+            | isNear dest -> return start
+            | otherwise -> search (Set.insert dest seen)
+                                 (foldl' (flip Set.insert) q
+                                     [ (dist+1, dest, start) | dest <- cardinal dest ])
 
 cardinal :: (Int, Int) -> [(Int, Int)]
 cardinal (y,x) = [ (y-1,x), (y,x-1), (y,x+1), (y+1,x) ]

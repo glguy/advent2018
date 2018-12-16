@@ -1,4 +1,3 @@
-
 {-|
 Module      : Main
 Description : Day 16 solution
