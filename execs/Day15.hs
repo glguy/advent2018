@@ -13,6 +13,7 @@ module Main (main) where
 import           Advent
 import           Data.Maybe
 import           Data.Ord
+import           Data.Function
 import           Data.List
 import qualified Data.Set as Set
 import qualified Data.Map as Map
@@ -20,6 +21,7 @@ import           Data.Set (Set)
 import           Data.Map (Map)
 import           Data.Vector (Vector)
 import qualified Data.Vector as Vector
+import Control.Concurrent
 
 data Team = Elf | Goblin
   deriving (Eq, Ord, Show)
@@ -166,42 +168,38 @@ layers start valid = go (Set.singleton start)
 -- | Figure out where, if anywhere, this unit wants to move
 route :: Coord -> Unit -> Map (Int, Int) Unit -> Dungeon -> Maybe Coord
 route pos unit units dungeon
-  | any isEnemy (cardinal pos) || isNothing destination = Nothing
-  | otherwise = Just nextMove
+  | isNear pos || null paths = Nothing
+  | otherwise                = Just next
 
   where
-    -- best next step to make progress to the target square
-    nextMove = head [next | next <- cardinal pos
-                      , isOpen next
-                      , distance (fromJust destination) next == distToTarget - 1 ]
-
-    -- Distance to the square the unit chose to move to
-    distToTarget = distance (fromJust destination) pos
-
-    -- Compute the distance to a particular starting from a given start
-    distance tgt start = distance' tgt Set.empty [(start,0)] []
-
-    distance' tgt seen [] others = distance' tgt seen (reverse others) []
-    distance' tgt seen ((here,dist):q) others
-            | tgt == here = dist
-            | isOpen here, Set.notMember here seen
-                        = distance' tgt (Set.insert here seen) q
-                                        ([(c,dist+1) | c <- cardinal here ]
-                                         ++ others)
-            | otherwise = distance' tgt seen q others
-
-    -- Square that the unit wants to move to
-    destination =
-         find (any isEnemy . cardinal)
-       $ concatMap Set.toList
-       $ layers pos isOpen
-
     isOpen loc = inDungeon dungeon loc && not (Map.member loc units)
-
+    isNear = any isEnemy . cardinal
     isEnemy loc =
       case Map.lookup loc units of
             Just u -> team u /= team unit
             Nothing -> False
+
+    len (l,_,_) = l
+    (_,_,next)
+      = minimum
+      $ head $ groupBy ((==) `on` len)
+      $ map (\p -> (length p, head p, last p)) paths
+
+    paths = search Set.empty [ [c] | c <- cardinal pos] []
+
+    -- Generate a list of all the shortest paths to an attack position
+    -- using a breadth first search
+    search _ [] [] = []
+    search seen [] others = search seen (reverse others) []
+    search seen ( path@(top:_) : q) others
+      | Set.member top seen || not (isOpen top) = search seen q others
+      | any isEnemy (cardinal top) = path : search (Set.insert top seen) q others
+      | otherwise =
+          search (Set.insert top seen) q
+              $ reverse [ c:path | c <- cardinal top ]
+                ++ others
+
+
 
 
 cardinal :: (Int, Int) -> [(Int, Int)]
