@@ -8,15 +8,16 @@ Maintainer  : emertens@gmail.com
 <https://adventofcode.com/2018/day/6>
 
 -}
+{-# Language OverloadedStrings #-}
 module Main (main) where
 
-import Advent (getInput, cardinality)
-import Data.List (groupBy, foldl', sort, sortBy)
-import Data.Function (on)
+import           Advent        (Parser, getParsedLines, number, cardinality)
+import           Advent.Coord  (Coord(C), cardinal, coordCol, coordRow, manhattan)
+import           Data.List     (groupBy, foldl', sort, sortBy)
+import           Data.Function (on)
+import           Data.Ix       (range)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-
-type Coord = (Int, Int)
 
 -- | Magic number used in part 2 when computing the region that
 -- isn't too far from all the points.
@@ -30,38 +31,17 @@ far = 10000
 -- 42513
 main :: IO ()
 main =
-  do input <- parseInput <$> getInput 6
+  do input <- getParsedLines 6 parseCoord
      print (part1 input)
      print (part2 input)
 
 
--- | Parse the input file as lines of comma delimited coordinates
-parseInput :: [String] -> [Coord]
-parseInput = map parseCoord
-
 -- | Parse a comma delimited coordinate
 --
--- >>> parseCoord "1, 2"
--- (1,2)
-parseCoord :: String -> Coord
-parseCoord str =
-  case break (','==) str of
-    (x,',':y) -> (read x,read y)
-    _         -> error ("parseCoord: " ++ str)
-
--- | Compute the Manhattan distance between two coordinates
-manhattan :: Coord -> Coord -> Int
-manhattan (x,y) (u,v) = abs (x-u) + abs (y-v)
-
--- | Compute the cardinal neighbors of a coordinate: north, south, east, west
-neighbors :: Coord -> [Coord]
-neighbors (x,y) = [ (x+1,y) , (x-1,y) , (x,y-1), (x,y+1)]
-
--- | Given two corners of a rectangle, generate all of the coordinates contained
--- in that rectangle.
-region :: Coord -> Coord -> [Coord]
-region (xlo, ylo) (xhi, yhi) = [(x, y) | x <- [xlo .. xhi], y <- [ylo .. yhi]]
-
+-- >>> Text.Megaparsec.parseTest parseCoord "1, 2"
+-- C 2 1
+parseCoord :: Parser Coord
+parseCoord = flip C <$> number <* ", " <*> number
 
 -- | Part 1 looks for the largest completely closed region of coordinates
 -- that are nearest to one of the input coordinates. We determine that a
@@ -92,15 +72,15 @@ part1 input
                   [ (coord, manhattan c coord) | coord <- input ]
 
     -- Compute the minimum and maximum values of the x and y coordinates
-    minx = minimum (map fst input)
-    miny = minimum (map snd input)
-    maxx = maximum (map fst input)
-    maxy = maximum (map snd input)
+    minx = minimum (map coordCol input)
+    miny = minimum (map coordRow input)
+    maxx = maximum (map coordCol input)
+    maxy = maximum (map coordRow input)
 
     -- Compute all the coordinates within the min/max bounds as well as a
     -- box that is one larger all the way around
-    box0 = region (minx, miny) (maxx, maxy)
-    box1 = region (minx+1, miny+1) (maxx+1, maxy+1)
+    box0 = range (C miny minx, C maxy maxx)
+    box1 = range (C (miny+1) (minx+1), C (maxy+1) (maxx+1))
 
 
 -- | Part 2 finds the size of the region with sum of distances less than 10,000
@@ -116,9 +96,9 @@ part2 input = search Set.empty (Set.singleton startingPoint)
 
   where
     distances :: Coord -> Int
-    distances (x,y) = sum (map (manhattan (x,y)) input)
+    distances (C y x) = sum (map (manhattan (C y x)) input)
 
-    startingPoint = (median (map fst input), median (map snd input))
+    startingPoint = C (median (map coordRow input)) (median (map coordCol input))
 
     search seen next =
       case Set.minView next of
@@ -126,7 +106,7 @@ part2 input = search Set.empty (Set.singleton startingPoint)
         Just (i, next')
           | Set.notMember i seen, distances i < far ->
               search (Set.insert i seen)
-                     (foldl' (flip Set.insert) next' (neighbors i))
+                     (foldl' (flip Set.insert) next' (cardinal i))
           | otherwise -> search seen next'
 
 -- | Return the median element of a list. For even lists return the second

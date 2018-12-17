@@ -22,13 +22,12 @@ and subtraction of 4 elements.
 module Main (main) where
 
 import           Advent        (getParsedLines, number)
+import           Advent.Coord  (Coord(C))
 import           Data.Ord      (comparing)
 import           Data.List     (foldl1', maximumBy, intercalate)
 import           Data.Foldable (foldl')
 import qualified Control.Monad.Loop as L
 import qualified Data.Array.Unboxed as A
-
-type Coord = (Int, Int)
 
 type Grid = A.UArray Coord Int
 
@@ -52,7 +51,7 @@ main =
 part1 :: Grid -> String
 part1 areas = intercalate "," (map show [x,y])
   where
-    ((x,y),_) = maximumSquare areas 3 3
+    (C y x, _) = maximumSquare areas 3 3
 
 -- | Compute the position and size of the largest-valued square on the grid
 --
@@ -63,24 +62,24 @@ part1 areas = intercalate "," (map show [x,y])
 part2 :: Grid -> String
 part2 areas = intercalate "," (map show [x,y,s])
   where
-    ((x,y),s) = maximumSquare areas 1 dim
+    (C y x, s) = maximumSquare areas 1 dim
 
 -- | Compute power level of power cell given the cells coordinate
 -- and the player's serial number.
 --
--- >>> powerLevel 8 (3,5)
+-- >>> powerLevel 8 (C 5 3)
 -- 4
--- >>> powerLevel 57 (122,79)
+-- >>> powerLevel 57 (C 79 122)
 -- -5
--- >>> powerLevel 39 (217,196)
+-- >>> powerLevel 39 (C 196 217)
 -- 0
--- >>> powerLevel 71 (101,153)
+-- >>> powerLevel 71 (C 153 101)
 -- 4
 powerLevel ::
   Int   {- ^ serial number   -} ->
   Coord {- ^ grid coordinate -} ->
   Int   {- ^ power level     -}
-powerLevel serial (x, y) = (rackid * y + serial) * rackid `div` 100 `mod` 10 - 5
+powerLevel serial (C y x) = (rackid * y + serial) * rackid `div` 100 `mod` 10 - 5
   where
     rackid = x+10
 
@@ -96,15 +95,15 @@ maximumSquare areas sizelo sizehi =
   do size <- range sizelo (sizehi+1)
      x    <- range 1      (dim-size)
      y    <- range 1      (dim-size)
-     let !area = rectangleSum areas (x, y) size size
-     return (((x,y),size),area)
+     let !area = rectangleSum areas (C y x) size size
+     return ((C y x, size), area)
 
   -- I'm using the loops package here because it saves time
   -- over generating a large list. In addition, maximumBy
   -- is less performant than writing maximize out with a strict
   -- fold.
   where
-    maximize = foldl' (\x y -> if snd x > snd y then x else y) minBound
+    maximize = foldl' (\x y -> if snd x > snd y then x else y) ((C 0 0, 0), minBound)
 
 -- | Iterate by one from the lower bound up-to but excluding the upper bound.
 range ::
@@ -121,11 +120,11 @@ rectangleSum ::
   Int   {- ^ rectangle width               -} ->
   Int   {- ^ rectangle height              -} ->
   Int   {- ^ sum of power levels in region -}
-rectangleSum areas (x, y) w h
-  = areas A.! (x+w-1,y+h-1)
-  - areas A.! (x  -1,y+h-1)
-  - areas A.! (x+w-1,y  -1)
-  + areas A.! (x  -1,y  -1)
+rectangleSum areas (C y x) w h
+  = areas A.! C (y+h-1) (x+w-1)
+  - areas A.! C (y+h-1) (x  -1)
+  - areas A.! C (y  -1) (x+w-1)
+  + areas A.! C (y  -1) (x  -1)
 
 -- | Compute the summed-area table given a function that maps
 -- a coordinate to its value. This table can be used with 'rectangleSum'
@@ -143,14 +142,14 @@ summedAreaTable f = convert table -- convert to unboxed array
   where
   -- table is boxed to allow self-reference in definition
   table :: A.Array Coord Int
-  table = A.array ((0,0),(dim,dim))
-        $ concat [ [ ((0,z),0), ((z,0),0)] | z <- [0..dim]]
+  table = A.array (C 0 0, C dim dim)
+        $ concat [ [ (C 0 z, 0), (C z 0, 0)] | z <- [0..dim]]
         ++
-        [ ( (x,y)
-          , f (x,y)
-          + table A.! (x-1,y  )
-          + table A.! (x  ,y-1)
-          - table A.! (x-1,y-1)
+        [ ( C y x
+          , f (C y x)
+          + table A.! C  y    (x-1)
+          + table A.! C (y-1)  x
+          - table A.! C (y-1) (x-1)
           )
         | x <- [1..dim]
         , y <- [1..dim]

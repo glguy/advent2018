@@ -11,6 +11,7 @@ Maintainer  : emertens@gmail.com
 module Main (main) where
 
 import           Advent (getInput)
+import           Advent.Coord (Coord(C))
 import qualified Data.Map.Strict as Map
 import           Data.Map (Map)
 import qualified Data.Array.Unboxed as A
@@ -22,16 +23,11 @@ data Turn = NextL | NextR | NextS deriving Show
 -- as the next turn when an intersection is reached.
 data Cart = Cart !Velocity !Turn deriving Show
 
--- | Coordinates are stored row then column in order to get
--- the correct ordering for carts in the simulation.
--- The y axis grows down as specified in the problem!
-data Coord = C !Int !Int deriving (Eq, Ord, Show)
-
 -- | Velocities are stored row then column to match coordinates
 data Velocity = V !Int !Int deriving (Eq, Show)
 
 -- | Road is a random-accessible representation of the track.
-newtype Road = Road (A.UArray (Int, Int) Char)
+newtype Road = Road (A.UArray Coord Char)
 
 -- | Carts are stored in a where they will naturally be ordered
 -- in the way that the simulation calls for.
@@ -104,23 +100,23 @@ part2 road carts = format (simulate onCollision road carts)
 
 -- | Parse the input file as a 'Road'
 parseRoad :: [String] -> Road
-parseRoad rs = Road (A.array ((0,0),(h-1,w-1)) assocs)
+parseRoad rs = Road (A.array (C 0 0, C (h-1) (w-1)) assocs)
   where
     w      = length (head rs)
     h      = length rs
-    assocs = [((y,x),c) | (y,r) <- zip [0..] rs
-                        , (x,c) <- zip [0..] r]
+    assocs = [(C y x, c) | (y,r) <- zip [0..] rs
+                         , (x,c) <- zip [0..] r]
 
 -- | Look up the road element at a particular coordinate
 indexRoad :: Road -> Coord -> Char
-indexRoad (Road v) (C i j) = v A.! (i,j)
+indexRoad (Road v) c = v A.! c
 
 -- | Find all the initial locations and velocities of the carts.
 findCarts :: Road -> CartQueue
 findCarts (Road rs) =
   Map.fromList
-    [ (C y x, Cart vel NextL)
-    | ((y,x),c) <- A.assocs rs
+    [ (pos, Cart vel NextL)
+    | (pos, c) <- A.assocs rs
     , vel <- case c of
                '^' -> [north]
                'v' -> [south]

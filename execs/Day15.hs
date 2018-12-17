@@ -1,4 +1,3 @@
-
 {-|
 Module      : Main
 Description : Day 15 solution
@@ -12,6 +11,7 @@ Maintainer  : emertens@gmail.com
 module Main (main) where
 
 import           Advent
+import           Advent.Coord
 import           Data.Maybe
 import           Data.Ord
 import           Data.Function
@@ -32,8 +32,6 @@ data Unit = Unit { attack, hp :: !Int, team :: !Team }
 
 data Tile = Open | Wall
   deriving (Eq, Ord, Show)
-
-type Coord = (Int, Int)
 
 type Dungeon = Vector (Vector Tile)
 
@@ -87,11 +85,11 @@ animate :: Dungeon -> [(Map Coord Unit, Int)] -> IO (Map Coord Unit, Int)
 animate d [(u,t)]    = putStrLn (draw t d u) >> return (u,t)
 animate d ((u,t):xs) = putStrLn (draw t d u) >> animate d xs
 
-draw :: Int -> Dungeon -> Map (Int,Int) Unit -> String
+draw :: Int -> Dungeon -> Map Coord Unit -> String
 draw turns dungeon units =
   unlines
     $ ("After " ++ show turns ++ " rounds:") :
-    [[ case fmap team (Map.lookup (y,x) units) of
+    [[ case fmap team (Map.lookup (C y x) units) of
         Just Elf -> 'E'
         Just Goblin -> 'G'
         Nothing -> if c == Wall then '#' else '.'
@@ -100,7 +98,7 @@ draw turns dungeon units =
     | (y,r) <- Vector.toList (Vector.indexed dungeon)
     ]
   where
-    drawStats y = intercalate "," [ drawU u | ((y',x'),u) <- Map.toList units, y == y' ]
+    drawStats y = intercalate "," [ drawU u | (C y' x', u) <- Map.toList units, y == y' ]
     drawU u = ' '
             : (case team u of Elf -> 'E'; Goblin -> 'G')
             : "(" ++ show (hp u) ++ ")"
@@ -109,9 +107,9 @@ draw turns dungeon units =
 parseMap :: Vector (Vector Char) -> Dungeon
 parseMap = fmap (fmap (\x -> if x == '#' then Wall else Open))
 
-parseUnits :: Vector (Vector Char) -> Map (Int,Int) Team
+parseUnits :: Vector (Vector Char) -> Map Coord Team
 parseUnits rs = Map.fromList
-  [ ((y,x),unit)
+  [ (C y x, unit)
     | (y,r) <- Vector.toList (Vector.indexed rs)
     , (x,c) <- Vector.toList (Vector.indexed r)
     , unit <- case c of
@@ -178,7 +176,7 @@ layers start valid = go (Set.singleton start)
           `Set.difference` seen
 
 -- | Figure out where, if anywhere, this unit wants to move
-route :: Coord -> Unit -> Map (Int, Int) Unit -> Dungeon -> Maybe Coord
+route :: Coord -> Unit -> Map Coord Unit -> Dungeon -> Maybe Coord
 route pos unit units dungeon
   | isNear pos = Nothing
   | otherwise  = search Set.empty (Set.fromList [ (0, start, start) | start <- cardinal pos ])
@@ -199,11 +197,8 @@ route pos unit units dungeon
                                  (foldl' (flip Set.insert) q
                                      [ (dist+1, dest, start) | dest <- cardinal dest ])
 
-cardinal :: (Int, Int) -> [(Int, Int)]
-cardinal (y,x) = [ (y-1,x), (y,x-1), (y,x+1), (y+1,x) ]
-
 inDungeon :: Dungeon -> Coord -> Bool
-inDungeon dungeon (y,x) =
+inDungeon dungeon (C y x) =
   fromMaybe undefined $
     do row <- dungeon Vector.!? y
        col <- row Vector.!? x
