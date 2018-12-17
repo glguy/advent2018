@@ -58,18 +58,27 @@ part1 dungeon units =
 part2 :: Dungeon -> Map Coord Team -> IO Int
 part2 dungeon units =
   do let elfCount = Map.size (Map.filter (Elf==) units)
-     search elfCount 3
+     search elfCount 3 Nothing
   where
-    search elfCount atk =
-      do let toUnit t = case t of Elf -> Unit atk 200 t; Goblin -> Unit 3 200 t
+
+    search elfCount atkLo (Just (atkHi, answer))
+      | atkLo + 1 == atkHi = return answer
+
+    search elfCount atkLo mbAtkHi =
+      do let atk = case mbAtkHi of
+                     Nothing       -> atkLo * 2
+                     Just (atkHi, _) -> (atkLo + atkHi) `quot` 2
+             toUnit t = case t of Elf -> Unit atk 200 t; Goblin -> Unit 3 200 t
              units2 = fmap toUnit units
              allElves (us,_) = Map.size (Map.filter (\u -> team u == Elf) us)
                                == elfCount
              (ticks, trimmed) = span allElves (simulate dungeon units2 0)
+         putStrLn ("Elf power: " ++ show atk)
          (units2, turns2) <- animate dungeon ticks
-         if null trimmed
-           then return (outcome units2 turns2)
-           else search elfCount (atk+1)
+
+         if null trimmed -- perfect elf victory
+           then search elfCount atkLo (Just (atk, outcome units2 turns2))
+           else search elfCount atk mbAtkHi
 
 outcome :: Map Coord Unit -> Int -> Int
 outcome units turns = turns * sum (fmap hp units)
