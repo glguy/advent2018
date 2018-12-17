@@ -116,8 +116,9 @@ parseUnits rs = Map.fromList
     , (x,c) <- Vector.toList (Vector.indexed r)
     , unit <- case c of
                 'G' -> [Goblin]
-                'E' -> [Elf]
-                _ -> [] ]
+                'E' -> [Elf   ]
+                _   -> [      ]
+    ]
 
 simulate :: Dungeon -> Map Coord Unit -> Int -> [(Map Coord Unit, Int)]
 simulate dungeon units turns =
