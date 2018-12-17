@@ -15,6 +15,7 @@ import           Control.Applicative
 import qualified Data.Set as Set
 import           Data.Set (Set)
 import           Data.Array.Unboxed as A
+import           Codec.Picture
 
 type Coord = (Int, Int)
 type Walls = A.UArray Coord Bool
@@ -23,10 +24,11 @@ type Walls = A.UArray Coord Bool
 main :: IO ()
 main =
   do input <- getParsedLines 17 parseLine
-     let walls = expandInput input
+     let walls = toArray (concat input)
          (walls', water) = solver walls
 
-     putStrLn (draw walls walls' water)
+     -- putStrLn (draw walls walls' water)
+     writePng "output.png" (drawPng walls walls' water)
 
      let flowingN  = Set.size water
          standingN = count id (zipWith (/=) (A.elems walls) (A.elems walls'))
@@ -80,38 +82,33 @@ neighbors walls (LookRight, c) =
 
 -- input format --------------------------------------------------------
 
-data Entry = Horiz Int Int Int | Vert Int Int Int
-  deriving Show
+asHoriz, asVert :: Int -> Int -> Int -> [Coord]
+asHoriz y xlo xhi = [ (x,y) | x <- [xlo..xhi] ]
+asVert  x ylo yhi = [ (x,y) | y <- [ylo..yhi] ]
 
-expandInput :: [Entry] -> Walls
-expandInput input =
-  toArray [ (x,y) | entry <- input
-                  , x <- case entry of
-                           Vert x _ _ -> [x]
-                           Horiz _ x1 x2 -> [x1..x2]
-                  , y <- case entry of
-                           Vert _ y1 y2 -> [y1..y2]
-                           Horiz y _ _ -> [y]
-                  ]
-
-parseLine :: Parser Entry
-parseLine = parseHoriz <|> parseVert
-
-parseHoriz, parseVert :: Parser Entry
-parseHoriz = Horiz <$ "y=" <*> number <* ", x=" <*> number <* ".." <*> number
-parseVert  = Vert <$ "x=" <*> number <* ", y=" <*> number <* ".." <*> number
+parseLine :: Parser [Coord]
+parseLine =
+  asHoriz <$ "y=" <*> number <* ", x=" <*> number <* ".." <*> number <|>
+  asVert  <$ "x=" <*> number <* ", y=" <*> number <* ".." <*> number
 
 -- rendering -----------------------------------------------------------
 
-draw :: Walls -> Walls -> Set (Int,Int) -> String
-draw walls walls' water = unlines picture
+drawPng :: Walls -> Walls -> Set (Int,Int) -> Image PixelRGB8
+drawPng walls walls' water =
+  generateImage toPixel (hicol-locol+1) (hirow-lorow+1)
   where
+    standing = PixelRGB8 0 0 255
+    flowing  = PixelRGB8 0 200 255
+    sand     = PixelRGB8 170 121 66
+    clay     = PixelRGB8 100 71 39
+
     ((locol,lorow),(hicol,hirow)) = A.bounds walls
-    picture = [ [ if Set.member (col,row) water then '|' else
-                  if walls A.! (col,row) then '▓' else
-                  if walls' A.! (col,row) then '~' else '░'
-                | col <- [locol..hicol]]
-              | row <- [lorow..hirow]]
+
+    toPixel col row =
+        if Set.member (locol+col,lorow+row) water then flowing  else
+        if walls A.!  (locol+col,lorow+row)       then clay     else
+        if walls' A.! (locol+col,lorow+row)       then standing else
+        sand
 
 -- searching -----------------------------------------------------------
 
@@ -140,4 +137,3 @@ below, left, right :: Coord -> Coord
 below (x,y) = (x,y+1)
 left  (x,y) = (x-1,y)
 right (x,y) = (x+1,y)
-
