@@ -95,4 +95,4 @@ inArray = A.inRange . A.bounds
 
 -- | Map a function over the indexes and elements of an array.
 imap :: (A.Ix i, A.IArray a e) => (i -> e -> e) -> a i e -> a i e
-imap f a = A.listArray (A.bounds a) [ (f i (a A.! i)) | i <- A.range (A.bounds a) ]
+imap f a = A.listArray (A.bounds a) [ f i e | (i, e) <- A.assocs a ]
