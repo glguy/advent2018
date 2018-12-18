@@ -19,6 +19,10 @@ import qualified Data.Array.Unboxed as A
 type Area = A.UArray Coord Char
 
 -- | Print the answers to day 18
+--
+-- >>> :main
+-- 506160
+-- 189168
 main :: IO ()
 main =
   do input <- parseInput <$> getInput 18
@@ -59,25 +63,25 @@ parseInput xs = A.listArray (C 1 1, C (length xs) (length (head xs))) (concat xs
 -- | Multiply the number of trees in the area by the number of lumberyards.
 resourceValue :: Area -> Int
 resourceValue v = count ('|'==) xs * count ('#'==) xs
-  where xs = A.elems v
+  where
+    xs = A.elems v
 
 -- | Linearly apply the 'timestep' function a given number of times
 timesteps :: Int -> Area -> Area
 timesteps 0 v = v
-timesteps n v = v `seq` timesteps (n-1) (timestep v)
+timesteps n v = timesteps (n-1) $! timestep v
 
 -- | Update the lumber area for one minute passing
 timestep :: Area -> Area
-timestep v =
-  A.listArray (A.bounds v) [ (aux c (v A.! c)) | c <- A.range (A.bounds v) ]
+timestep v = imap cell v
   where
     test c i  = inArray v i && c == v A.! i
 
-    aux i '.' = if atLeast 3 (test '|') (neighbors i) then '|' else '.'
-    aux i '|' = if atLeast 3 (test '#') (neighbors i) then '#' else '|'
-    aux i '#' = if any (test '#') (neighbors i) && any (test '|') (neighbors i)
-                then '#' else '.'
-    aux i c = error ("bad area: " ++ show (i,c))
+    cell i '.' | atLeast 3 (test '|') (neighbors i) = '|'
+    cell i '|' | atLeast 3 (test '#') (neighbors i) = '#'
+    cell i '#' | not (any (test '#') (neighbors i))
+              || not (any (test '|') (neighbors i)) = '.'
+    cell _ c = c
 
 -- | Determine if at least a given number of elements satisfy a predicate
 atLeast :: Int -> (a -> Bool) -> [a] -> Bool
@@ -87,4 +91,8 @@ atLeast n p (x:xs) = atLeast (if p x then n-1 else n) p xs
 
 -- | Test if an index is contained within an array.
 inArray :: (A.Ix i, A.IArray a e) => a i e -> i -> Bool
-inArray a c = A.inRange (A.bounds a) c
+inArray = A.inRange . A.bounds
+
+-- | Map a function over the indexes and elements of an array.
+imap :: (A.Ix i, A.IArray a e) => (i -> e -> e) -> a i e -> a i e
+imap f a = A.listArray (A.bounds a) [ (f i (a A.! i)) | i <- A.range (A.bounds a) ]
