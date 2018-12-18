@@ -15,10 +15,11 @@ import           Advent.Coord
 import           Control.Applicative
 import qualified Data.Set as Set
 import           Data.Set (Set)
+import qualified Data.Map as Map
+import           Data.Map (Map)
+import           Data.Foldable (foldl')
 import           Data.Array.Unboxed as A
 import           Codec.Picture
-
-type Walls = A.UArray Coord Bool
 
 -- | Print the answers to day 17
 main :: IO ()
@@ -39,47 +40,58 @@ main =
      print (flowingN + standingN)
      print standingN
 
-data Mode = LookLeft | LookRight | LookDown
-  deriving (Eq, Ord, Show)
+-- clay walls and standing water representation ------------------------
+
+type Walls = A.UArray Coord Bool
+
+isWall :: Walls -> Coord -> Bool
+isWall walls c = inArray walls c && walls A.! c
 
 -- water flow logic ----------------------------------------------------
 
+-- | Given some initial clay walls, generate the sequence of updated
+-- walls (including standing water) and flowing water coordinates.
 solver :: Walls -> [(Walls, Set Coord)]
 solver walls
-  | null fills = [(walls, water)]
-  | otherwise  = (walls, water) : solver walls'
+  | null fills = [(walls, Map.keysSet water)]
+  | otherwise  = (walls, Map.keysSet water) : solver (walls A.// fills)
   where
-    startY = coordRow (fst (A.bounds walls))
-    search = dfs (waterflow walls) (LookDown, (C startY 500))
-    water  = Set.fromList (map snd search)
+    water = waterflow walls
 
-    walls' = walls A.// fills
-
-    fills  = [(C ly x, True)
-               | (LookDown, c) <- search        -- downward-flowing water
-               , inArray walls (below c)        -- not on the bottom
-               , walls A.! below c              -- supported by a wall
-               , C ly lx <- isContained left  c -- look to the left
-               , C _  rx <- isContained right c -- look to the right
-               , x       <- [lx + 1 .. rx - 1]  -- between the walls
+    fills = [(C ly x, True)
+               | c@(C ly lx) <- Map.keys water
+               , isWall walls (below c)
+               , isWall walls (left  c)
+               , rightWall <- isContained c
+               , x <- [lx .. coordCol rightWall - 1]
                ]
 
-    isContained f c
+    -- search to the right to see that the bottom extends out to a wall
+    isContained c
       | walls A.! c       = [c]
-      | walls A.! below c = isContained f (f c)
+      | walls A.! below c = isContained (right c)
       | otherwise         = []
 
 -- water flow logic ----------------------------------------------------
 
-waterflow :: Walls -> (Mode, Coord) -> [(Mode, Coord)]
-waterflow walls (mode, c)
-  | not (inArray walls (below c)) = []
-  | not (walls A.! below c) = [ (LookDown, below c) ]
-  | otherwise = filter (isOpen . snd)
-              $ [ (LookLeft , left  c) | mode /= LookRight ]
-             ++ [ (LookRight, right c) | mode /= LookLeft  ]
+data Mode = LookLeft | LookRight | LookDown
+  deriving (Eq, Ord, Show)
+
+waterflow :: Walls -> Map Coord Mode
+waterflow walls = reachable (waterStep walls) (C startY 500, LookDown)
   where
-    isOpen c' = inArray walls c' && not (walls A.! c')
+    startY = coordRow (fst (A.bounds walls))
+
+-- | Given the current walls (including standing water), a water
+-- coordinate, and the direction the water is flowing, generate
+-- the neighboring water flows.
+waterStep :: Walls -> (Coord, Mode) -> [(Coord, Mode)]
+waterStep walls (c, mode)
+  | not (inArray walls (below c)) = []
+  | not (walls A.! below c) = [ (below c, LookDown) ]
+  | otherwise = filter (not . isWall walls . fst)
+              $ [ (left  c, LookLeft ) | mode /= LookRight ]
+             ++ [ (right c, LookRight) | mode /= LookLeft  ]
 
 -- input format --------------------------------------------------------
 
@@ -113,12 +125,12 @@ draw walls walls' water =
 
 -- searching -----------------------------------------------------------
 
-dfs :: Ord a => (a -> [a]) -> a -> [a]
-dfs next start = aux start (const []) Set.empty
+reachable :: Ord a => ((a,b) -> [(a,b)]) -> (a,b) -> Map a b
+reachable next = aux Map.empty
   where
-    aux x rest seen
-      | Set.member x seen = rest seen
-      | otherwise = x : foldr aux rest (next x) (Set.insert x seen)
+    aux seen (k,v)
+      | Map.member k seen = seen
+      | otherwise         = foldl' aux (Map.insert k v seen) (next (k,v))
 
 -- array helpers -------------------------------------------------------
 
