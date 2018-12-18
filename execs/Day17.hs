@@ -26,7 +26,7 @@ main :: IO ()
 main =
   do input <- getParsedLines 17 parseLine
      let walls = toArray (concat input)
-         frames = solver walls
+         frames = fillSteps walls
          (walls', water) = last frames
 
      writePng "output.png" (draw walls walls' water)
@@ -42,6 +42,7 @@ main =
 
 -- clay walls and standing water representation ------------------------
 
+-- | Walls are represented with a 'True' value in the array.
 type Walls = A.UArray Coord Bool
 
 isWall :: Walls -> Coord -> Bool
@@ -51,10 +52,9 @@ isWall walls c = inArray walls c && walls A.! c
 
 -- | Given some initial clay walls, generate the sequence of updated
 -- walls (including standing water) and flowing water coordinates.
-solver :: Walls -> [(Walls, Set Coord)]
-solver walls
-  | null fills = [(walls, Map.keysSet water)]
-  | otherwise  = (walls, Map.keysSet water) : solver (walls A.// fills)
+fillSteps :: Walls -> [(Walls, Set Coord)]
+fillSteps walls = (walls, Map.keysSet water)
+             : if null fills then [] else fillSteps (walls A.// fills)
   where
     water = waterflow walls
 
@@ -74,6 +74,8 @@ solver walls
 
 -- water flow logic ----------------------------------------------------
 
+-- | Water flow mode. This optimization just keeps the water running
+-- flat along a surface from trying to turn around back into itself.
 data Mode = LookLeft | LookRight | LookDown
   deriving (Eq, Ord, Show)
 
@@ -104,7 +106,7 @@ parseLine =
   asHoriz <$ "y=" <*> number <* ", x=" <*> number <* ".." <*> number <|>
   asVert  <$ "x=" <*> number <* ", y=" <*> number <* ".." <*> number
 
--- rendering -----------------------------------------------------------
+-- image rendering -----------------------------------------------------
 
 draw :: Walls -> Walls -> Set Coord -> Image PixelRGB8
 draw walls walls' water =
@@ -125,6 +127,9 @@ draw walls walls' water =
 
 -- searching -----------------------------------------------------------
 
+-- | Given a function describing neighboring states find all of the
+-- reachable state given a starting state. Each state is associated
+-- with some metadata that comes from the first time that state was reached.
 reachable :: Ord a => ((a,b) -> [(a,b)]) -> (a,b) -> Map a b
 reachable next = aux Map.empty
   where
@@ -134,9 +139,12 @@ reachable next = aux Map.empty
 
 -- array helpers -------------------------------------------------------
 
+-- | Test if an index is contained within an array.
 inArray :: (Ix i, IArray a e) => a i e -> i -> Bool
 inArray a c = A.inRange (A.bounds a) c
 
+-- | Convert a list of coordinates into an array marked 'True' for the
+-- listed coordinates.
 toArray :: [Coord] -> A.UArray Coord Bool
 toArray xs = A.accumArray (\_ e -> e) False (C miny minx, C maxy maxx)
                         [ (xy, True) | xy <- xs ]
