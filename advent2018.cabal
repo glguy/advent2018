@@ -65,7 +65,7 @@ executable Day07
 
 executable Day08
   main-is:             Day08.hs
-  build-depends:       advent2018, base, yoctoparsec == 0.1.*
+  build-depends:       advent2018, base, yoctoparsec ^>= 0.1
   hs-source-dirs:      execs
   default-language:    Haskell2010
 
@@ -119,7 +119,14 @@ executable Day16
 
 executable Day17
   main-is:             Day17.hs
-  build-depends:       advent2018, base, array, containers, JuicyPixels
+  build-depends:       advent2018, base, array, containers,
+                       JuicyPixels ^>= 3.3.2
+  hs-source-dirs:      execs
+  default-language:    Haskell2010
+
+executable Day18
+  main-is:             Day18.hs
+  build-depends:       advent2018, base, array, containers
   hs-source-dirs:      execs
   default-language:    Haskell2010
 

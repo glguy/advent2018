@@ -42,3 +42,9 @@ manhattan (C x y) (C u v) = abs (x-u) + abs (y-v)
 -- | Compute the cardinal neighbors of a coordinate: north, south, east, west
 cardinal :: Coord -> [Coord]
 cardinal c = c `seq` [above c, left c, right c, below c]
+
+-- | Compute the cardinal neighbors of a coordinate: north, south, east, west
+neighbors :: Coord -> [Coord]
+neighbors c = c `seq` [above c, left c, right c, below c,
+                       above (left c), above (right c),
+                       below (left c), below (right c)]
