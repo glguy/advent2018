@@ -11,6 +11,7 @@ module Advent.Visualize
   , Image
   , PixelRGB8(..)
   , writePng
+  , generateImage
   ) where
 
 import Advent.Coord
