@@ -56,7 +56,7 @@ main =
 parseRe0, parseRe1, parseRe2, parseRe3 :: Parser (Regexp Dir)
 parseRe0 = "^" *> parseRe1 <* "$"
 parseRe1 = foldr1 Alt <$> sepBy1 parseRe2 "|"
-parseRe2 = foldr Seq Empty <$> many parseRe3
+parseRe2 = foldl Seq Empty <$> many parseRe3
 parseRe3 = between "(" ")" parseRe1 <|> One <$> parseDir
 
 -- | Parse a cardinal direction

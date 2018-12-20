@@ -8,11 +8,14 @@ Maintainer  : emertens@gmail.com
 -}
 module Advent.Queue (Queue, singleton, empty, fromList, snoc, pop) where
 
+import Data.Foldable
+
 -- | FIFO Queue implementation
 data Queue a = Queue [a] !Int [a] !Int
 
 instance Foldable Queue where
   toList (Queue l _ r _) = l ++ reverse r
+  foldr f z (Queue l _ r _) = foldr f (foldl (flip f) z r) l
 
 -- | Renders using 'fromList' syntax
 instance Show a => Show (Queue a) where
