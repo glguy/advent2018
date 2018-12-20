@@ -41,7 +41,7 @@ newtype Regexp a = RE [[Either a (Regexp a)]]
 main :: IO ()
 main =
   do input <- getParsedInput 20 parseRe0
-     let (doors, _) = route input
+     let (doors, _) = route (Set.singleton origin) input
      let ds = distances (neighbor doors) (C 0 0)
 
      writePng "output.png" (draw doors ds)
@@ -89,27 +89,19 @@ distances next start = go Map.empty (Queue.singleton (start,0))
 
 -- | Given a regular expression, compute a set of generated doors and end points
 -- generated from the regular expression when starting at the origin.
-route :: Regexp Dir -> (Set Coord, Set Coord)
-route (RE alts) = foldMap (foldM routeFrom (Set.singleton origin)) alts
+route :: Set Coord -> Regexp Dir -> (Set Coord, Set Coord)
+route starts (RE alts) = foldMap (foldM routeFrom starts) alts
 
 -- Given a set of starting points and a new direction or sub-expression
 -- compute the reachable doors and the ending coordinates
 routeFrom :: Set Coord -> Either Dir (Regexp Dir) -> (Set Coord, Set Coord)
-routeFrom starts x = combineSteps starts (either dirStep route x)
-
--- | Given the starting points, and the doors and end-points based on the origin
--- compute all the doors and end-points points from any of the starts.
-combineSteps :: Set Coord -> (Set Coord, Set Coord) -> (Set Coord, Set Coord)
-combineSteps starts (doorsX, endsX) = foldMap atOffset starts
-  where
-    atOffset end = ( Set.mapMonotonic (addCoord end) doorsX
-                   , Set.mapMonotonic (addCoord end) endsX)
+routeFrom starts = either (dirStep starts) (route starts)
 
 -- | Generate the door passed thorugh and the end point when taking a step from the origin
 -- in the given direction.
-dirStep :: Dir -> (Set Coord, Set Coord)
-dirStep d = ( Set.singleton (move d origin) -- door
-            , Set.singleton (move d (move d origin))) -- endpoint
+dirStep :: Set Coord -> Dir -> (Set Coord, Set Coord)
+dirStep starts d = ( Set.mapMonotonic (move d) starts -- doors
+                   , Set.mapMonotonic (move d . move d) starts) -- endpoint
 
 -- Rendering -----------------------------------------------------------
 
