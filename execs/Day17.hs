@@ -12,6 +12,7 @@ module Main (main) where
 
 import           Advent
 import           Advent.Coord
+import           Advent.Visualize
 import           Control.Applicative
 import qualified Data.Set as Set
 import           Data.Set (Set)
@@ -19,7 +20,6 @@ import qualified Data.Map as Map
 import           Data.Map (Map)
 import           Data.Foldable (foldl')
 import           Data.Array.Unboxed as A
-import           Codec.Picture
 
 -- | Print the answers to day 17
 main :: IO ()
@@ -109,21 +109,18 @@ parseLine =
 -- image rendering -----------------------------------------------------
 
 draw :: Walls -> Walls -> Set Coord -> Image PixelRGB8
-draw walls walls' water =
-  generateImage toPixel (hicol-locol+1) (hirow-lorow+1)
+draw walls walls' water = drawArray walls toPixel
   where
     standing = PixelRGB8 0 0 255
     flowing  = PixelRGB8 0 200 255
     sand     = PixelRGB8 170 121 66
     clay     = PixelRGB8 100 71 39
 
-    (C lorow locol, C hirow hicol) = A.bounds walls
-
-    toPixel col row =
-        if Set.member (C (lorow+row) (locol+col)) water then flowing  else
-        if walls A.!  (C (lorow+row) (locol+col))       then clay     else
-        if walls' A.! (C (lorow+row) (locol+col))       then standing else
-        sand
+    toPixel i wall =
+      if Set.member i water then flowing  else
+      if wall               then clay     else
+      if walls' A.! i       then standing else
+      sand
 
 -- searching -----------------------------------------------------------
 
