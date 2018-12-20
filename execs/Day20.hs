@@ -51,7 +51,7 @@ main =
 
 -- Regular expression parsing for each level of precedence
 parseRe0 :: Parser (Regexp Dir)
-parseRe0 = "^" *> parseRe1 <* "$"
+parseRe0 = between "^" "$" parseRe1
 parseRe1 = RE <$> many parseRe2 `sepBy1` "|"
 parseRe2 = Right <$> between "(" ")" parseRe1 <|> Left <$> parseDir
 
