@@ -19,7 +19,8 @@ import           Data.Map (Map)
 import           Data.Foldable (foldl')
 import           Data.Set (Set)
 import           Data.Word (Word8)
-import           Text.Megaparsec ((<|>), many, sepBy, sepBy1, between , eof)
+import           Control.Monad (foldM)
+import           Text.Megaparsec ((<|>), many, sepBy1, between , eof)
 import           Text.Megaparsec.Char (newline)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -29,11 +30,7 @@ data Dir = N | S | E | W
   deriving (Eq, Ord, Show)
 
 -- | Regular expressions parameterized by the underlying elements
-data Regexp a
-  = One a
-  | Alt (Regexp a) (Regexp a)
-  | Seq (Regexp a) (Regexp a)
-  | Empty
+newtype Regexp a = RE [[Either a (Regexp a)]]
   deriving (Eq, Ord, Show)
 
 -- | Print the answers to day 20
@@ -53,11 +50,10 @@ main =
      print (Map.size (Map.filter (>= 1000) ds))
 
 -- Regular expression parsing for each level of precedence
-parseRe0, parseRe1, parseRe2, parseRe3 :: Parser (Regexp Dir)
+parseRe0 :: Parser (Regexp Dir)
 parseRe0 = "^" *> parseRe1 <* "$"
-parseRe1 = foldr1 Alt <$> sepBy1 parseRe2 "|"
-parseRe2 = foldl Seq Empty <$> many parseRe3
-parseRe3 = between "(" ")" parseRe1 <|> One <$> parseDir
+parseRe1 = RE <$> many parseRe2 `sepBy1` "|"
+parseRe2 = Right <$> between "(" ")" parseRe1 <|> Left <$> parseDir
 
 -- | Parse a cardinal direction
 parseDir :: Parser Dir
@@ -91,17 +87,29 @@ distances next start = go Map.empty (Queue.singleton (start,0))
           | otherwise -> d `seq`
               go (Map.insert x d seen) (foldl' (flip Queue.snoc) q [(n,d+1) | n <- next x])
 
--- | Given a regular expression, compute a set of generated doors and end points.
+-- | Given a regular expression, compute a set of generated doors and end points
+-- generated from the regular expression when starting at the origin.
 route :: Regexp Dir -> (Set Coord, Set Coord)
-route Empty       = (Set.empty, Set.singleton origin)
-route (One d    ) = (Set.singleton (move d origin), Set.singleton (move d (move d origin)))
-route (Alt r1 r2) = route r1 <> route r2
-route (Seq r1 r2) = doors `seq` ends `seq` (doors, ends)
-      where
-        (doors1, ends1) = route r1
-        (doors2, ends2) = route r2
-        doors = doors1 <> Set.unions [ Set.mapMonotonic (addCoord end) doors2 | end <- Set.toList ends1 ]
-        ends  = Set.unions [ Set.mapMonotonic (addCoord end) ends2 | end <- Set.toList ends1 ]
+route (RE alts) = foldMap (foldM routeFrom (Set.singleton origin)) alts
+
+-- Given a set of starting points and a new direction or sub-expression
+-- compute the reachable doors and the ending coordinates
+routeFrom :: Set Coord -> Either Dir (Regexp Dir) -> (Set Coord, Set Coord)
+routeFrom starts x = combineSteps starts (either dirStep route x)
+
+-- | Given the starting points, and the doors and end-points based on the origin
+-- compute all the doors and end-points points from any of the starts.
+combineSteps :: Set Coord -> (Set Coord, Set Coord) -> (Set Coord, Set Coord)
+combineSteps starts (doorsX, endsX) = foldMap atOffset starts
+  where
+    atOffset end = ( Set.mapMonotonic (addCoord end) doorsX
+                   , Set.mapMonotonic (addCoord end) endsX)
+
+-- | Generate the door passed thorugh and the end point when taking a step from the origin
+-- in the given direction.
+dirStep :: Dir -> (Set Coord, Set Coord)
+dirStep d = ( Set.singleton (move d origin) -- door
+            , Set.singleton (move d (move d origin))) -- endpoint
 
 -- Rendering -----------------------------------------------------------
 
