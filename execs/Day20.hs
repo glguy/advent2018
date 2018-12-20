@@ -13,7 +13,10 @@ module Main (main) where
 import           Advent (Parser, getParsedInput)
 import           Advent.Coord (Coord(C), above, below, left, right, origin, addCoord, boundingBox, cardinal)
 import           Advent.Visualize (writePng, generateImage, Image, PixelRGB8(..))
+import           Advent.Queue (Queue)
+import qualified Advent.Queue as Queue
 import           Data.Map (Map)
+import           Data.Foldable (foldl')
 import           Data.Set (Set)
 import           Data.Word (Word8)
 import           Text.Megaparsec ((<|>), many, sepBy, sepBy1, between , eof)
@@ -78,14 +81,15 @@ neighbor doors here =
 -- | Given a neighbors generating function compute the minimum distances
 -- to all reachable locations.
 distances :: Ord a => (a -> [a]) -> a -> Map a Int
-distances next start = go Map.empty [(start,0)] []
+distances next start = go Map.empty (Queue.singleton (start,0))
   where
-    go seen [] [] = seen
-    go seen [] others = go seen (reverse others) []
-    go seen ((x,d):xs) others
-      | Map.member x seen = go seen xs others
-      | otherwise = d `seq`
-          go (Map.insert x d seen) xs ([(n,d+1) | n <- next x] ++ others)
+    go seen q =
+      case Queue.pop q of
+        Nothing -> seen
+        Just ((x,d),q)
+          | Map.member x seen -> go seen q
+          | otherwise -> d `seq`
+              go (Map.insert x d seen) (foldl' (flip Queue.snoc) q [(n,d+1) | n <- next x])
 
 -- | Given a regular expression, compute a set of generated doors and end points.
 route :: Regexp Dir -> (Set Coord, Set Coord)
