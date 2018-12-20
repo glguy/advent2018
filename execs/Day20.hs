@@ -10,7 +10,7 @@ Maintainer  : emertens@gmail.com
 {-# Language OverloadedStrings #-}
 module Main (main) where
 
-import           Advent (Parser, getParsedInput)
+import           Advent (Parser, count, getParsedInput)
 import           Advent.Coord (Coord(C), above, below, left, right, origin, addCoord, boundingBox, cardinal)
 import           Advent.Visualize (writePng, generateImage, Image, PixelRGB8(..))
 import           Advent.Queue (Queue)
@@ -47,7 +47,7 @@ main =
      writePng "output.png" (draw doors ds)
 
      print (maximum ds)
-     print (Map.size (Map.filter (>= 1000) ds))
+     print (count (>= 1000) ds)
 
 -- Regular expression parsing for each level of precedence
 parseRe0 :: Parser (Regexp Dir)
