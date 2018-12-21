@@ -13,7 +13,8 @@ coordinate is odd and the other is even. Rooms will be located at
 coordinates where both components are even. Coordinates where both
 components are odd will always be walls.
 
-@   -  <->  +
+@
+    -  <->  +
    54321012345
   5###########
 - 4#.|.#.|.#.#

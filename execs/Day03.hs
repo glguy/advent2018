@@ -12,6 +12,8 @@ Maintainer  : emertens@gmail.com
 module Main (main) where
 
 import           Advent
+import           Advent.Coord
+import           Advent.Visualize
 import           Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -24,6 +26,9 @@ main :: IO ()
 main =
   do patches <- getParsedLines 3 parsePatch
      let fabric = cutFabric patches
+
+     writePng "output.png" (draw fabric)
+
      print (part1 fabric)
      print (part2 fabric patches)
 
@@ -43,18 +48,18 @@ parsePatch = Patch <$ "#"   <*> number
 -- each coordinate.
 --
 -- >>> cutFabric [Patch {patchId = 3, offsetX = 5, offsetY = 5, sizeX = 2, sizeY = 2}]
--- fromList [((5,5),1),((5,6),1),((6,5),1),((6,6),1)]
-cutFabric :: [Patch] -> Map (Int, Int) Int
+-- fromList [(C 5 5,1),(C 5 6,1),(C 6 5,1),(C 6 6,1)]
+cutFabric :: [Patch] -> Map Coord Int
 cutFabric = cardinality . concatMap patchCoords
 
 -- | Compute the number of coordinates that are covered by more than one patch
 -- given the number of patches that cover each coordinate.
-part1 :: Map (Int, Int) Int -> Int
+part1 :: Map Coord Int -> Int
 part1 = count (> 1)
 
 -- | Find the ID of the patch that overlaps with no others given the number
 -- of patches that overlap each coordinate and the list of patches.
-part2 :: Map (Int, Int) Int -> [Patch] -> Int
+part2 :: Map Coord Int -> [Patch] -> Int
 part2 fabric patches =
   head [ patchId patch
        | patch <- patches
@@ -62,9 +67,20 @@ part2 fabric patches =
        ]
 
 -- | Make a set of the coordinates covered by a patch.
-patchCoords :: Patch -> [(Int, Int)]
+patchCoords :: Patch -> [Coord]
 patchCoords patch =
-  [ (x,y)
+  [ C y x
   | x <- [offsetX patch .. offsetX patch + sizeX patch - 1]
   , y <- [offsetY patch .. offsetY patch + sizeY patch - 1]
   ]
+
+-- | Render the patches
+draw :: Map Coord Int -> Image PixelRGB8
+draw coords =
+  drawCoords bnds $ \i ->
+    case Map.lookup i coords of
+      Nothing -> PixelRGB8 0 0 0
+      Just 1  -> PixelRGB8 0 255 0
+      Just i  -> PixelRGB8 (fromIntegral (min 255 (128+30*i))) 0 0
+  where
+    Just bnds = boundingBox (Map.keys coords)
