@@ -12,7 +12,7 @@ module Main (main) where
 
 import           Advent (Parser, count, getParsedInput)
 import           Advent.Coord (Coord(C), above, below, left, right, origin, addCoord, boundingBox, cardinal)
-import           Advent.Visualize (writePng, generateImage, Image, PixelRGB8(..))
+import           Advent.Visualize (writePng, drawCoords, colorWheel, Image, PixelRGB8(..))
 import           Advent.Queue (Queue)
 import qualified Advent.Queue as Queue
 import           Data.Map (Map)
@@ -74,18 +74,20 @@ neighbor doors here =
     | dir <- [N,E,S,W]
     , Set.member (move dir here) doors ]
 
+data WithLen a = WithLen a !Int
+
 -- | Given a neighbors generating function compute the minimum distances
 -- to all reachable locations.
 distances :: Ord a => (a -> [a]) -> a -> Map a Int
-distances next start = go Map.empty (Queue.singleton (start,0))
+distances next start = go Map.empty (Queue.singleton (WithLen start 0))
   where
     go seen q =
       case Queue.pop q of
         Nothing -> seen
-        Just ((x,d),q)
+        Just (WithLen x d, q)
           | Map.member x seen -> go seen q
-          | otherwise -> d `seq`
-              go (Map.insert x d seen) (foldl' (flip Queue.snoc) q [(n,d+1) | n <- next x])
+          | otherwise         ->
+              go (Map.insert x d seen) (Queue.appendList [WithLen n (d+1) | n <- next x] q)
 
 -- | Given a regular expression, compute a set of generated doors and end points
 -- generated from the regular expression when starting at the origin.
@@ -108,23 +110,13 @@ dirStep starts d = ( Set.mapMonotonic (move d) starts -- doors
 -- | Render the maze using adjacent colors to represent rooms with similar distances
 -- from the origin
 draw :: Set Coord -> Map Coord Int -> Image PixelRGB8
-draw doors rooms = generateImage toPixel width height
+draw doors rooms = drawCoords bnds toPixel
   where
-    Just (C loy lox, C hiy hix) = boundingBox doors
-    width  = hix - lox + 1
-    height = hiy - loy + 1
+    Just bnds = boundingBox doors
     maxD   = maximum rooms
     isRoom = any (`Set.member` doors) . cardinal
-    toPixel x y
+    toPixel c
       | c == origin                  = PixelRGB8 255 0 0
       | Set.member c doors           = PixelRGB8 255 255 255
       | Just d <- Map.lookup c rooms = colorWheel (fromIntegral (255 * d `quot` maxD))
       | otherwise                    = PixelRGB8 0 0 0
-      where
-        c = C (loy+y) (lox+x)
-
-colorWheel :: Word8 -> PixelRGB8
-colorWheel i
-  | i < 85    = PixelRGB8 (255 - i * 3) 0 (i * 3)
-  | i < 170   = PixelRGB8 0 ((i-85) * 3) (255 - (i-85)*3)
-  | otherwise = PixelRGB8 ((i-170) * 3) (255 - (i-170)*3) 0

@@ -6,7 +6,7 @@ License     : ISC
 Maintainer  : emertens@gmail.com
 
 -}
-module Advent.Queue (Queue, singleton, empty, fromList, snoc, pop) where
+module Advent.Queue (Queue, singleton, empty, fromList, snoc, pop, appendList) where
 
 import Data.Foldable
 
@@ -48,6 +48,11 @@ mkQueue q@(Queue f lenF r lenR)
 -- | Add a new element to the end of a queue.
 snoc :: a -> Queue a -> Queue a
 snoc x (Queue f lenF r lenR) = mkQueue (Queue f lenF (x:r) (1+lenR))
+
+-- | Append many items onto a queue. The items will pop from the queue
+-- in the same order as they are in the given list.
+appendList :: [a] -> Queue a -> Queue a
+appendList xs q = foldl' (flip snoc) q xs
 
 -- | Remove an element from the front of a queue and a new queue
 -- without that element.

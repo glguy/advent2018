@@ -7,23 +7,31 @@ Maintainer  : emertens@gmail.com
 
 -}
 module Advent.Visualize
-  ( drawArray
-  , Image
+  ( Image
   , PixelRGB8(..)
+
   , writePng
   , generateImage
+
+  , drawCoords
+
+  , colorWheel
   ) where
 
 import Advent.Coord
 import Codec.Picture
-import Data.Array.IArray
+import Data.Array.IArray (IArray, (!), bounds)
+import Data.Word (Word8)
 
-drawArray :: IArray a e => a Coord e -> (Coord -> e -> PixelRGB8) -> Image PixelRGB8
-drawArray a f =
-  generateImage toPixel  (hicol-locol+1) (hirow-lorow+1)
+drawCoords :: Pixel p => (Coord, Coord) -> (Coord -> p) -> Image p
+drawCoords (C loy lox, C hiy hix) f = generateImage toPixel width height
   where
-    (C lorow locol, C hirow hicol) = bounds a
+    toPixel x y = f (C (loy+y) (lox+x))
+    width       = hix - lox + 1
+    height      = hiy - loy + 1
 
-    toPixel col row = f i (a ! i)
-      where
-        i = C (lorow+row) (locol+col)
+colorWheel :: Word8 -> PixelRGB8
+colorWheel i
+  | i < 85    = PixelRGB8 (255 - i * 3) 0 (i * 3)
+  | i < 170   = PixelRGB8 0 ((i-85) * 3) (255 - (i-85)*3)
+  | otherwise = PixelRGB8 ((i-170) * 3) (255 - (i-170)*3) 0

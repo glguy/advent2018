@@ -12,7 +12,7 @@ module Main (main) where
 
 import           Advent
 import           Advent.Coord
-import           Advent.Visualize
+import           Advent.Visualize (Image, PixelRGB8(..), drawCoords, writePng)
 import           Control.Applicative
 import qualified Data.Set as Set
 import           Data.Set (Set)
@@ -109,16 +109,16 @@ parseLine =
 -- image rendering -----------------------------------------------------
 
 draw :: Walls -> Walls -> Set Coord -> Image PixelRGB8
-draw walls walls' water = drawArray walls toPixel
+draw walls walls' water = drawCoords (A.bounds walls) toPixel
   where
     standing = PixelRGB8 0 0 255
     flowing  = PixelRGB8 0 200 255
     sand     = PixelRGB8 170 121 66
     clay     = PixelRGB8 100 71 39
 
-    toPixel i wall =
+    toPixel i =
       if Set.member i water then flowing  else
-      if wall               then clay     else
+      if walls  A.! i       then clay     else
       if walls' A.! i       then standing else
       sand
 
