@@ -6,6 +6,28 @@ License     : ISC
 Maintainer  : emertens@gmail.com
 
 <https://adventofcode.com/2018/day/20>
+
+This solution relies on the generated maze starting from the origin.
+Each door will be located at coordinates where one component of the
+coordinate is odd and the other is even. Rooms will be located at
+coordinates where both components are even. Coordinates where both
+components are odd will always be walls.
+
+@   -  <->  +
+   54321012345
+  5###########
+- 4#.|.#.|.#.#
+  3#-###-#-#-#
+  2#.|.|.#.#.#
+^ 1#-#####-#-#
+| 0#.#.#X|.#.#
+v 1#-#-#####-#
+  2#.#.|.|.|.#
+  3#-###-###-#
++ 4#.|.|.#.|.#
+  5###########
+@
+
 -}
 {-# Language OverloadedStrings #-}
 module Main (main) where
