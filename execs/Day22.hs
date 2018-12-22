@@ -149,7 +149,9 @@ astar nexts start = go Set.empty (PQueue.singleton 0 (0, start))
 
 -- | Parse depth and target coordinate
 parseInput :: Parser (Int, Coord)
-parseInput = (,) <$> number <* "\n" <*> parseCoord <* "\n"
+parseInput =
+  (,) <$ "depth: "  <*> number     <* "\n"
+      <* "target: " <*> parseCoord <* "\n"
 
 -- | Parse a coordinate in @X,Y@ form.
 parseCoord :: Parser Coord
