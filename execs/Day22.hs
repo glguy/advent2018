@@ -47,12 +47,22 @@ torch = Tool 1
 -- | Print the answers to day 22
 main :: IO ()
 main =
-  do let start = (origin, torch)
-         goal  = (target, torch)
-     -- (a,b:_) = break (goal==) (astar steps start)
+  do -- (a,b:_) = break (goal==) (astar steps start)
      -- writePng "output.png" (draw (b:a))
-     let Just part2 = lookup goal (astar steps start)
+     print part1
      print part2
+
+-- | Sum of risk values in rectangle defined by origin and target
+part1 :: Int
+part1 = sum [ t | c <- A.range (origin, target), let Tool t = risk c ]
+
+-- | Minimum cost of traveling to the target from the origin
+part2 :: Int
+part2 = n
+  where
+    Just n = lookup goal (astar steps start)
+    start = (origin, torch)
+    goal  = (target, torch)
 
 -- movement rule set ---------------------------------------------------
 
@@ -120,7 +130,7 @@ astar nexts start = go Set.empty (PQueue.singleton 0 (0, start))
       where
         seen' = Set.insert x seen
         work' = foldl' addWork work (nexts x)
-        addWork w (x',stepcost,heuristic) =
+        addWork w (x', stepcost, heuristic) =
           let cost' = cost + stepcost
           in PQueue.insert (cost' + heuristic) (cost', x') w
 
