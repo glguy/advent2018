@@ -25,7 +25,7 @@ the risk number of the area I'm not allowed to enter.
 -}
 module Main (main) where
 
-import           Advent.Coord
+import           Advent.Coord (Coord(C), above, left, boundingBox, cardinal, manhattan, origin)
 import           Advent.Visualize (writePng, colorWheel, drawCoords, Image, PixelRGB8(..))
 import qualified Advent.PQueue as PQueue
 import qualified Data.Array as A
@@ -39,7 +39,7 @@ depth = 5355
 target :: Coord
 target = C 796 14
 
-newtype Tool = Tool Int deriving (Show, Eq, Ord)
+newtype Tool = Tool { toolId :: Int } deriving (Show, Eq, Ord)
 
 torch :: Tool
 torch = Tool 1
@@ -54,7 +54,7 @@ main =
 
 -- | Sum of risk values in rectangle defined by origin and target
 part1 :: Int
-part1 = sum [ t | c <- A.range (origin, target), let Tool t = risk c ]
+part1 = sum [ toolId (risk c) | c <- A.range (origin, target) ]
 
 -- | Minimum cost of traveling to the target from the origin
 part2 :: Int
@@ -64,14 +64,14 @@ part2 = n
     start = (origin, torch)
     goal  = (target, torch)
 
--- movement rule set ---------------------------------------------------
+-- movement rules ------------------------------------------------------
 
 -- | Compute the states reachable from the given state. Cost is the
 -- incremental cost of choosing that state. Heuristic is lower-bound
 -- on the distance remaining until the target. This lower-bound is an
 -- admissible heuristic that enables A* to find the optimal path.
 steps ::
-  (Coord, Tool)               {- ^ location, tool -} ->
+  (Coord, Tool)               {- ^ location, tool                  -} ->
   [((Coord, Tool), Int, Int)] {- ^ location, tool, cost, heuristic -}
 steps (here, tool) =
   [ ((dest, tool'), cost, heuristic)
@@ -95,10 +95,9 @@ geologic = (arr A.!)
     -- array used for memoization
     arr :: A.Array Coord Int
     arr = A.listArray bnds
-      [(if c == origin then 0         else
-        if c == target then 0         else
-        if y == 0      then x * 16807 else
+      [(if y == 0      then x * 16807 else
         if x == 0      then y * 48271 else
+        if c == target then 0         else
         erosion (above c) * erosion (left c)
        ) `rem` 20183
        | c@(C y x) <- A.range bnds ]
@@ -142,8 +141,7 @@ astar nexts start = go Set.empty (PQueue.singleton 0 (0, start))
 draw :: [((Coord, Tool), Int)] -> Image PixelRGB8
 draw visited = drawCoords box $ \i ->
   case Map.lookup i v of
-    Nothing -> let Tool t = risk i
-                   r = fromIntegral (255 - 20 * t)
+    Nothing -> let r = fromIntegral (255 - 20 * toolId (risk i))
                in PixelRGB8 r r r
     Just d  -> colorWheel (fromIntegral (255 * d `quot` maxD))
   where
