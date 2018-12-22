@@ -21,12 +21,14 @@ import           Data.IntMap          (IntMap)
 import qualified Data.IntMap.Strict   as IntMap
 import qualified Data.IntSet          as IntSet
 import           Data.Vector          (Vector)
-import qualified Data.Vector          as Vector
+import qualified Data.Vector.Unboxed  as U
+import qualified Data.Vector.Generic  as Vector
+import qualified Data.Vector.Generic.Mutable as M
 import           Numeric              (showHex)
 import           Text.Megaparsec      ((<|>), endBy, eof)
 import           Text.Megaparsec.Char (newline, space)
 
-type Registers = IntMap Int
+type Registers = U.Vector Int
 
 data Instruction = I Op !Int !Int !Int
 
@@ -42,7 +44,7 @@ main =
 
      putStrLn (renderProgram ip pgm)
 
-     let regs = IntMap.fromList (zip [0..5] (repeat 0))
+     let regs = Vector.replicate 6 0
      let xs = run ip (fmap semantics pgm) regs
      print (head xs)      -- part 1
      print (findCycle xs) -- part 2
@@ -66,11 +68,14 @@ run ip pgm regs =
   case pgm Vector.!? pc of
     Nothing -> []
     Just f
-      | pc == 29 -> regs IntMap.! 5 : run ip pgm (nextIP (f regs))
+      | pc == 29 -> regs Vector.! 5 : run ip pgm (nextIP (f regs))
       | otherwise -> run ip pgm (nextIP (f regs))
   where
-    pc = regs IntMap.! ip
-    nextIP = IntMap.update (Just . (1+)) ip
+    pc = Vector.unsafeIndex regs ip
+    nextIP regs = chg regs ip (1+)
+
+chg vec i f = U.modify (\v -> M.unsafeModify v f i) vec
+set vec i e = U.modify (\v -> M.unsafeWrite v i e) vec
 
 -- | Map from opcode names to opcode semantics. The functions expect
 -- the operands A, B, and C as well as the current registers.
@@ -100,7 +105,7 @@ semantics (I op a b c) = sem $ \reg ->
     Eqri -> if reg a == val b then 1 else 0
     Eqrr -> if reg a == reg b then 1 else 0
   where
-    sem f regs = (IntMap.insert c $! f (regs IntMap.!)) regs
+    sem f regs = set regs c $! f (Vector.unsafeIndex regs)
     val = id
 
 -- parsing -------------------------------------------------------------
