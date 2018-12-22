@@ -104,13 +104,12 @@ data WithLen a = WithLen a !Int
 distances :: Ord a => (a -> [a]) -> a -> Map a Int
 distances next start = go Map.empty (Queue.singleton (WithLen start 0))
   where
-    go seen q =
-      case Queue.pop q of
-        Nothing -> seen
-        Just (WithLen x d, q)
-          | Map.member x seen -> go seen q
-          | otherwise         ->
-              go (Map.insert x d seen) (Queue.appendList [WithLen n (d+1) | n <- next x] q)
+    go seen Queue.Empty = seen
+    go seen (WithLen x d Queue.:<| q)
+      | Map.member x seen = go seen q
+      | otherwise = go (Map.insert x d seen) q'
+      where
+        q' = Queue.appendList [WithLen n (d+1) | n <- next x] q
 
 -- | Given a regular expression, compute a set of generated doors and end points
 -- generated from the regular expression when starting at the origin.
@@ -142,3 +141,7 @@ draw doors rooms = drawCoords bnds toPixel
       | Set.member c doors           = PixelRGB8 255 255 255
       | Just d <- Map.lookup c rooms = colorWheel (fromIntegral (255 * d `quot` maxD))
       | otherwise                    = PixelRGB8 0 0 0
+
+
+visit :: Monad m => (Regexp a -> m (Regexp a)) -> Regexp a -> m (Regexp a)
+visit f (RE xs) = f . RE =<< traverse (traverse (traverse (visit f))) xs

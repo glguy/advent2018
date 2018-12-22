@@ -6,16 +6,35 @@ License     : ISC
 Maintainer  : emertens@gmail.com
 
 -}
-module Advent.Queue (Queue, singleton, empty, fromList, snoc, pop, appendList) where
+{-# Language PatternSynonyms, ViewPatterns #-}
+module Advent.Queue (Queue(Empty, (:<|)), (|>), singleton, fromList, snoc, pop, appendList) where
 
-import Data.Foldable
+import Data.Foldable (Foldable(..))
+import Data.Monoid   (Dual(..))
+import Data.Coerce   (coerce)
 
 -- | FIFO Queue implementation
 data Queue a = Queue [a] !Int [a] !Int
 
+{-# COMPLETE (:<|), Empty #-}
+
+-- | Empty queue
+pattern Empty :: Queue a
+pattern Empty <- Queue [] _ _ _
+  where
+    Empty = Queue [] 0 [] 0
+
+-- | Pattern for 'pop'
+pattern (:<|) :: a -> Queue a -> Queue a
+pattern x :<| xs <- (pop -> Just (x, xs))
+
+(|>) :: Queue a -> a -> Queue a
+q |> x = snoc x q
+
 instance Foldable Queue where
-  toList (Queue l _ r _) = l ++ reverse r
+  toList    (Queue l _ r _) = l ++ reverse r
   foldr f z (Queue l _ r _) = foldr f (foldl (flip f) z r) l
+  foldMap f (Queue l _ r _) = foldMap f l <> getDual (foldMap (coerce f) r)
 
 -- | Renders using 'fromList' syntax
 instance Show a => Show (Queue a) where
@@ -27,10 +46,6 @@ instance Show a => Show (Queue a) where
 -- | Construct a queue from a single element.
 singleton :: a -> Queue a
 singleton x = Queue [x] 1 [] 0
-
--- | Construct an empty queue
-empty :: Queue a
-empty = Queue [] 0 [] 0
 
 -- | Construct a queue from a list. The head of the list will
 -- be the first element returned by 'pop'
@@ -52,7 +67,7 @@ snoc x (Queue f lenF r lenR) = mkQueue (Queue f lenF (x:r) (1+lenR))
 -- | Append many items onto a queue. The items will pop from the queue
 -- in the same order as they are in the given list.
 appendList :: [a] -> Queue a -> Queue a
-appendList xs q = foldl' (flip snoc) q xs
+appendList xs q = foldl' (|>) q xs
 
 -- | Remove an element from the front of a queue and a new queue
 -- without that element.
