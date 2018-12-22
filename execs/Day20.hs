@@ -137,7 +137,6 @@ draw doors rooms = drawCoords bnds toPixel
   where
     Just bnds = boundingBox doors
     maxD   = maximum rooms
-    isRoom = any (`Set.member` doors) . cardinal
     toPixel c
       | c == origin                  = PixelRGB8 255 0 0
       | Set.member c doors           = PixelRGB8 255 255 255
