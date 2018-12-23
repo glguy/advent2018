@@ -162,7 +162,7 @@ parseCoord = flip C <$> number <* "," <*> number
 -- | Render the search states visited on the way to finding the shortest
 -- route to the target. Use a rainbow gradient to show the relative
 -- costs of visiting each location.
-draw :: (Coord -> Tool) -> [((Coord, Tool), Int)] -> Image PixelRGB8
+draw :: (Coord -> Tool) -> [(Node, Int)] -> Image PixelRGB8
 draw risk visited = drawCoords box $ \i ->
   case Map.lookup i v of
     Nothing -> let r = fromIntegral (255 - 20 * toolId (risk i))
@@ -170,5 +170,5 @@ draw risk visited = drawCoords box $ \i ->
     Just d  -> colorWheel (fromIntegral (255 * d `quot` maxD))
   where
     maxD = maximum v
-    v = Map.fromList [ (c, d) | ((c, _), d) <- visited ]
-    Just box = boundingBox (map (fst . fst) visited)
+    v = Map.fromList [ (c, d) | (Node c _, d) <- visited ]
+    Just box = boundingBox [ c | (Node c _, _) <- visited ]
