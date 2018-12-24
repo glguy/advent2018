@@ -99,9 +99,9 @@ simulate groups
 
 -- | Determine the effectiveness multiplier of an attack element against
 -- a particular group.
-effectiveness :: Element -> Group -> Int
-effectiveness elt grp =
-  case lookup elt (special grp) of
+effectiveness :: Group -> Group -> Int
+effectiveness atk def =
+  case lookup (attackElement atk) (special def) of
     Just Immune -> 0
     Nothing     -> 1
     Just Weak   -> 2
@@ -137,9 +137,9 @@ targetChoice atk def
   | null def' = Nothing
   | otherwise = Just $! choice
   where
-    prj grp = (effectiveness (attackElement atk) grp, effectivePower grp, initiative grp)
+    prj def = (effectiveness atk def, effectivePower def, initiative def)
     choice = maximumBy (comparing prj) def'
-    def' = filter (\g -> effectiveness (attackElement atk) g > 0
+    def' = filter (\g -> effectiveness atk g > 0
                       && team g /= team atk) def
 
 -- | Given an unordered list of groups, compute the result of combat
@@ -158,8 +158,7 @@ combat groups =
         do defid <- lookup atkid selection
            atk <- IntMap.lookup atkid groups
            def <- IntMap.lookup defid groups
-           let dmg = effectiveness (attackElement atk) def
-                   * effectivePower atk
+           let dmg = effectiveness atk def * effectivePower atk
                killed = min (size def) (dmg `quot` hp def)
                size' = size def - killed
            if size' > 0
