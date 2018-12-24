@@ -1,4 +1,3 @@
-
 {-|
 Module      : Main
 Description : Day 24 solution
@@ -29,6 +28,7 @@ data Group = Group
   , attack        :: !Int
   , attackElement :: !Element
   , initiative    :: !Int
+  , team          :: !Team
   }
   deriving (Show, Eq)
 
@@ -36,70 +36,164 @@ data Team = Good | Bad deriving (Eq, Ord, Show)
 
 data Effect = Weak | Immune deriving (Eq, Ord, Show)
 
-data Element
-  = Bludgeoning
-  | Fire
-  | Slashing
-  | Radiation
-  | Cold
+data Element = Bludgeoning | Fire | Slashing | Radiation | Cold
   deriving (Eq, Ord, Show)
 
--- answer 45 or 46
-
 -- | Print the answers to day 24
+--
+-- >>> :main
+-- 16747
+-- 5923
 main :: IO ()
 main =
-  do (good, bad) <- getParsedInput 24 parseInput
-     -- input <- getInput 24
+  do groups <- getParsedInput 24 parseInput
+     print (evaluate (simulate groups))
+     print (evaluate (search (attemptBoost groups) 1 Nothing))
 
-     print (search (attempt good bad) 1 Nothing)
+-- | Find the sum of the sizes of all the groups.
+evaluate :: [Group] -> Int
+evaluate = sum . map size
 
-search f tooLo mbHi | traceShow (tooLo, mbHi) False = undefined
-search f tooLo (Just hi)
-  | tooLo + 1 == hi = f hi
-
+-- | Determine the lowest value that satisfies the given
+-- predicate and return the result.
+search ::
+  (Int -> Maybe a) {- ^ satisfication condition -} ->
+  Int              {- ^ known too low bound     -} ->
+  Maybe (Int, a)   {- ^ known satisfying int    -} ->
+  a                {- satisfying result         -}
+search f tooLo (Just (hi, best)) | tooLo + 1 == hi = best
 search f tooLo mbHi =
   case f i of
-    Nothing -> search f i mbHi
-    Just _  -> search f tooLo (Just i)
+    Nothing   -> search f i mbHi
+    Just best -> search f tooLo (Just (i, best))
   where
     i = case mbHi of
-          Nothing -> tooLo*2
-          Just hi -> (tooLo+1 + hi) `quot` 2
+          Nothing     -> tooLo*2
+          Just (hi,_) -> (tooLo+1 + hi) `quot` 2
 
+-- | Test if a group is on the reindeer team.
+isGood :: Group -> Bool
+isGood g = Good == team g
 
-attempt good bad boost = run good' bad
+-- | Determine if a boost is enough to allow the reindeer to
+-- win. If it is return the final group of reindeer.
+attemptBoost :: [Group] -> Int -> Maybe [Group]
+attemptBoost groups boost
+  | all isGood outcome = Just outcome
+  | otherwise          = Nothing
   where
-    good' = map (\g -> g { attack = attack g + boost }) good
+    boostGood g
+      | isGood g  = g { attack = attack g + boost }
+      | otherwise = g
 
-    run good bad
-      | null good = Nothing
-      | null bad  = Just (sum (map size good))
-      | otherwise =
-           case combat good bad of
-             (a,b) | a == good && b == bad -> Nothing
-                   | otherwise -> (run a b)
+    outcome = simulate (map boostGood groups)
 
-parseInput :: Parser ([Group], [Group])
+-- | Run a battle until it stops making progress due to immunities
+-- or due to a team being wiped out.
+simulate :: [Group] -> [Group]
+simulate groups
+  | groups == groups' = groups
+  | otherwise = simulate groups'
+  where
+    groups' = combat groups
+
+-- | Determine the effectiveness multiplier of an attack element against
+-- a particular group.
+effectiveness :: Element -> Group -> Int
+effectiveness elt grp =
+  case lookup elt (special grp) of
+    Just Immune -> 0
+    Nothing     -> 1
+    Just Weak   -> 2
+
+-- | Compute effective power of a group
+effectivePower :: Group -> Int
+effectivePower grp = size grp * attack grp
+
+-- | Order a list of groups by the order they get to chose their
+-- targets.
+targetSelectionOrder :: [Group] -> [Group]
+targetSelectionOrder groups = sortOn prj groups
+  where
+    prj grp = (negate (effectivePower grp), negate (initiative grp))
+
+-- | Given a list of groups generate a targetting assignment.
+targetSelection ::
+  [Group]      {- ^ unordered groups        -} ->
+  [(Int, Int)] {- ^ attacker / defender IDs -}
+targetSelection groups =
+  foldr aux (\_ -> []) (targetSelectionOrder groups) groups
+  where
+  aux atk next groups =
+    case targetChoice atk groups of
+      Nothing -> next groups
+      Just def -> (initiative atk, initiative def)
+                : next (delete def groups)
+
+-- | Given a group and the list of remaining target choices, determine
+-- the chosen group, if any.
+targetChoice :: Group -> [Group] -> Maybe Group
+targetChoice atk def
+  | null def' = Nothing
+  | otherwise = Just $! choice
+  where
+    prj grp = (effectiveness (attackElement atk) grp, effectivePower grp, initiative grp)
+    choice = maximumBy (comparing prj) def'
+    def' = filter (\g -> effectiveness (attackElement atk) g > 0
+                      && team g /= team atk) def
+
+-- | Given an unordered list of groups, compute the result of combat
+combat :: [Group] -> [Group]
+combat groups =
+  foldr aux IntMap.elems combatOrder (toIntMap groups)
+  where
+    selection = targetSelection groups
+
+    combatOrder = sortBy (flip compare) (map initiative groups)
+
+    toIntMap xs = IntMap.fromList [ (initiative g, g) | g <- xs ]
+
+    aux atkid next groups =
+      fromMaybe (next groups) $
+        do defid <- lookup atkid selection
+           atk <- IntMap.lookup atkid groups
+           def <- IntMap.lookup defid groups
+           let dmg = effectiveness (attackElement atk) def
+                   * effectivePower atk
+               killed = min (size def) (dmg `quot` hp def)
+               size' = size def - killed
+           if size' > 0
+               then return (next (IntMap.insert defid def { size = size' } groups))
+               else return (next (IntMap.delete defid groups))
+
+-- input parsing -------------------------------------------------------
+
+parseInput :: Parser [Group]
 parseInput =
-  do "Immune System:" *> newline
-     immune <- endBy parseUnitLine newline
+  do immuneSys <- "Immune System:\n" *> endBy (parseUnitLine Good) newline
      newline
-     "Infection:" *> newline
-     infection <- endBy parseUnitLine newline
+     infection <- "Infection:\n"     *> endBy (parseUnitLine Bad ) newline
      eof
-     return (immune, infection)
+     return (immuneSys ++ infection)
 
-parseUnitLine :: Parser Group
-parseUnitLine =
-  do size <- number <* " units each with "
-     hp <- number <* " hit points "
-     special <- concat <$> option [] (between "(" ") " (sepBy1 parseSpecials "; "))
-              <* "with an attack that does "
-     attack <- number <* " "
+parseUnitLine :: Team -> Parser Group
+parseUnitLine team =
+  do size          <- number       <* " units each with "
+     hp            <- number       <* " hit points "
+     special       <- parseSpecial <* "with an attack that does "
+     attack        <- number       <* " "
      attackElement <- parseElement <* " damage at initiative "
-     initiative <- number
+     initiative    <- number
      return Group{..}
+
+parseSpecial :: Parser [(Element, Effect)]
+parseSpecial = option [] (between "(" ") " (concat <$> sepBy1 parseSpecial1 "; "))
+
+parseSpecial1 :: Parser [(Element, Effect)]
+parseSpecial1 =
+  do effect   <- parseEffect <* " to "
+     elements <- parseElement `sepBy1` ", "
+     return [ (element, effect) | element <- elements ]
 
 parseElement :: Parser Element
 parseElement =
@@ -111,96 +205,3 @@ parseElement =
 
 parseEffect :: Parser Effect
 parseEffect = Weak <$ "weak" <|> Immune <$ "immune"
-
-parseSpecials :: Parser [(Element, Effect)]
-parseSpecials =
-  do effect   <- parseEffect <* " to "
-     elements <- parseElement `sepBy1` ", "
-     return [ (element, effect) | element <- elements ]
-
-effectiveness :: Element -> Group -> Int
-effectiveness elt grp =
-  case lookup elt (special grp) of
-    Just Immune -> 0
-    Nothing     -> 1
-    Just Weak   -> 2
-
-effectivePower :: Group -> Int
-effectivePower grp = size grp * attack grp
-
-targetSelectionOrder :: [Group] -> [Group] -> [(Team, Group)]
-targetSelectionOrder good bad =
-  sortOn (prj . snd) $
-    [(Good, grp) | grp <- good] ++
-    [(Bad,  grp) | grp <- bad ]
-  where
-    prj grp = (negate (effectivePower grp), negate (initiative grp))
-
-targetSelection :: [Group] -> [Group] -> [(Team, Int, Int)]
-targetSelection good bad =
-  foldr aux (\_ _ -> []) (targetSelectionOrder good bad) good bad
-  where
-  aux (Good, atk) next good bad =
-    case targetChoice atk bad of
-      Nothing -> next good bad
-      Just def -> (Good, initiative atk, initiative def)
-                : next good (delete def bad)
-  aux (Bad, atk) next good bad =
-    case targetChoice atk good of
-      Nothing -> next good bad
-      Just def -> (Bad, initiative atk, initiative def)
-                : next (delete def good) bad
-
-targetChoice :: Group -> [Group] -> Maybe Group
-targetChoice atk def
-  | null def' = Nothing
-  | otherwise = Just $! choice
-  where
-    prj grp = (effectiveness (attackElement atk) grp, effectivePower grp, initiative grp)
-    choice = maximumBy (comparing prj) def'
-    def' = filter (\g -> effectiveness (attackElement atk) g > 0) def
-
-combat :: [Group] -> [Group] -> ([Group], [Group])
-combat good bad =
-  foldr aux (\good bad -> (IntMap.elems good, IntMap.elems bad)) combatOrder
-        (toIntMap good) (toIntMap bad)
-  where
-    selection = targetSelection good bad
-
-    combatOrder =
-      map (\(t,grp) -> (t, initiative grp)) $
-      sortOn (\(_,grp) -> negate (initiative grp)) $
-      [ (Good, grp) | grp <- good ] ++
-      [ (Bad, grp) | grp <- bad ]
-
-    toIntMap :: [Group] -> IntMap Group
-    toIntMap xs = IntMap.fromList [ (initiative g, g) | g <- xs ]
-
-    getTarget (team, atkid) = listToMaybe [ defid | (team, atkid', defid) <- selection
-                                                  , atkid == atkid' ]
-
-    aux (Good, atkid) next good bad =
-      fromMaybe (next good bad) $
-        do defid <- getTarget (Good, atkid)
-           atk <- IntMap.lookup atkid good
-           def <- IntMap.lookup defid bad
-           let dmg = effectiveness (attackElement atk) def
-                   * effectivePower atk
-               killed = min (size def) (dmg `quot` hp def)
-               size' = size def - killed
-           if size' > 0
-               then return (next good (IntMap.insert defid def { size = size' } bad))
-               else return (next good (IntMap.delete defid bad))
-
-    aux (Bad, atkid) next good bad =
-      fromMaybe (next good bad) $
-        do defid <- getTarget (Bad, atkid)
-           atk <- IntMap.lookup atkid bad
-           def <- IntMap.lookup defid good
-           let dmg = effectiveness (attackElement atk) def
-                   * effectivePower atk
-               killed = min (size def) (dmg `quot` hp def)
-               size' = size def - killed
-           if size' > 0
-               then return (next (IntMap.insert defid def { size = size' } good) bad)
-               else return (next (IntMap.delete defid good) bad)
