@@ -12,7 +12,8 @@ Maintainer  : emertens@gmail.com
 module Main (main) where
 
 import           Advent        (Parser, getParsedLines, number, cardinality)
-import           Advent.Coord  (Coord(C), cardinal, coordCol, coordRow, manhattan)
+import           Advent.Coord  (Coord(C), cardinal, coordCol, coordRow,
+                                above, below, right, left, manhattan, boundingBox)
 import           Data.List     (groupBy, foldl', sort, sortBy)
 import           Data.Function (on)
 import           Data.Ix       (range)
@@ -64,23 +65,19 @@ part1 input
 
     toRegion c =
       case choices of
-        [(r,_)]:_ -> [r]
+        [(r,_)]:_ -> [r] -- only matches on unique minimum
         _         -> []
       where
         choices = groupBy ((==)    `on` snd)
                 $ sortBy  (compare `on` snd)
                   [ (coord, manhattan c coord) | coord <- input ]
 
-    -- Compute the minimum and maximum values of the x and y coordinates
-    minx = minimum (map coordCol input)
-    miny = minimum (map coordRow input)
-    maxx = maximum (map coordCol input)
-    maxy = maximum (map coordRow input)
+    Just (topLeft, bottomRight) = boundingBox input
 
     -- Compute all the coordinates within the min/max bounds as well as a
     -- box that is one larger all the way around
-    box0 = range (C miny minx, C maxy maxx)
-    box1 = range (C (miny+1) (minx+1), C (maxy+1) (maxx+1))
+    box0 = range (topLeft, bottomRight)
+    box1 = range (left (above topLeft), right (below bottomRight))
 
 
 -- | Part 2 finds the size of the region with sum of distances less than 10,000
