@@ -14,8 +14,8 @@ sums of the differences list.
 -}
 module Main (main) where
 
-import Advent (getInput)
-import Data.Maybe (fromJust)
+import           Advent     (getParsedLines, number)
+import           Data.Maybe (fromJust)
 import qualified Data.Set as Set
 
 -- | Print the answers to the problem.
@@ -25,23 +25,9 @@ import qualified Data.Set as Set
 -- 137041
 main :: IO ()
 main =
-  do inp <- parseInput <$> getInput 1
+  do inp <- getParsedLines 1 number
      print (sum inp)
      print (part2 inp)
-
--- | Parse input a lines of integers prefixed by @+@ and @-@.
-parseInput :: [String] -> [Integer]
-parseInput = map readInt
-
--- | Parse an integer that is prefixed with a @+@ or @-@.
---
--- >>> readInt "+10"
--- 10
--- >>> readInt "-42"
--- -42
-readInt :: String -> Integer
-readInt ('+':xs) = read xs
-readInt xs       = read xs
 
 -- | Compute the partial sums of a list.
 --
@@ -76,4 +62,3 @@ firstDuplicate = go Set.empty
     go seen (x:xs)
       | x `Set.member` seen = Just x
       | otherwise           = go (Set.insert x seen) xs
-
