@@ -6,15 +6,17 @@ License     : ISC
 Maintainer  : emertens@gmail.com
 
 -}
-{-# Language BangPatterns #-}
+{-# Language BangPatterns, TypeFamilies, TypeOperators, DeriveGeneric #-}
 module Advent.Coord where
 
-import Data.Ix
-import GHC.Arr
 import Data.Foldable
+import Data.Ix
+import Data.MemoTrie
+import GHC.Arr
+import GHC.Generics
 
 data Coord = C !Int !Int
-  deriving (Read, Show, Ord, Eq)
+  deriving (Read, Show, Ord, Eq, Generic)
 
 coordRow, coordCol :: Coord -> Int
 coordRow (C row _) = row
@@ -65,3 +67,9 @@ origin = C 0 0
 
 addCoord :: Coord -> Coord -> Coord
 addCoord (C y x) (C v u) = C (y+v) (x+u)
+
+instance HasTrie Coord where
+  newtype Coord :->: r = CoordTrie { unCoordTrie :: Reg Coord :->: r }
+  trie                 = trieGeneric CoordTrie
+  untrie               = untrieGeneric unCoordTrie
+  enumerate            = enumerateGeneric unCoordTrie

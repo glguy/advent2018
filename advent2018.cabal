@@ -25,6 +25,7 @@ library
                        vector      ^>= 0.12,
                        JuicyPixels ^>= 3.3.2,
                        array       ^>= 0.5.3,
+                       MemoTrie    ^>= 0.6.9,
 
   hs-source-dirs:      common
   default-language:    Haskell2010
@@ -157,7 +158,7 @@ executable Day21
 
 executable Day22
   main-is:             Day22.hs
-  build-depends:       advent2018, base, array, containers
+  build-depends:       advent2018, base, array, containers, MemoTrie
   hs-source-dirs:      execs
   default-language:    Haskell2010
 
