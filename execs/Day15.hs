@@ -42,67 +42,42 @@ main =
      let dungeon = parseMap input
          units = parseUnits input
 
-     answer1 <- part1 dungeon units
-     answer2 <- part2 dungeon units
-     print answer1
-     print answer2
+     print (part1 dungeon units)
+     print (part2 dungeon units)
 
-part1 :: Dungeon -> Map Coord Team -> IO Int
-part1 dungeon units =
-  do let units1 = fmap (Unit 3 200) units
-     (units1, turns1) <- animate dungeon $ simulate dungeon units1 0
-     return (outcome units1 turns1)
-
-part2 :: Dungeon -> Map Coord Team -> IO Int
-part2 dungeon units =
-  do let elfCount = Map.size (Map.filter (Elf==) units)
-     search elfCount 3 Nothing
+part1 :: Dungeon -> Map Coord Team -> Int
+part1 dungeon units = outcome units2 turns
   where
+    units1 = fmap (Unit 3 200) units
+    (units2, turns) = last (simulate dungeon units1 0)
+
+part2 :: Dungeon -> Map Coord Team -> Int
+part2 dungeon units = search elfCount 3 Nothing
+  where
+    elfCount = Map.size (Map.filter (Elf==) units)
 
     search elfCount atkLo (Just (atkHi, answer))
-      | atkLo + 1 == atkHi = return answer
+      | atkLo + 1 == atkHi = answer
 
-    search elfCount atkLo mbAtkHi =
-      do let atk = case mbAtkHi of
-                     Nothing       -> atkLo * 2
-                     Just (atkHi, _) -> (atkLo + atkHi) `quot` 2
-             toUnit t = case t of Elf -> Unit atk 200 t; Goblin -> Unit 3 200 t
-             units2 = fmap toUnit units
-             allElves (us,_) = Map.size (Map.filter (\u -> team u == Elf) us)
-                               == elfCount
-             (ticks, trimmed) = span allElves (simulate dungeon units2 0)
-         putStrLn ("Elf power: " ++ show atk)
-         (units2, turns2) <- animate dungeon ticks
+    search elfCount atkLo mbAtkHi
+      | null trimmed -- perfect elf victory
+      = search elfCount atkLo (Just (atk, outcome units2 turns))
+      | otherwise = search elfCount atk mbAtkHi
+      where
+        atk = case mbAtkHi of
+                Nothing       -> atkLo * 2
+                Just (atkHi, _) -> (atkLo + atkHi) `quot` 2
+        toUnit t = case t of Elf -> Unit atk 200 t; Goblin -> Unit 3 200 t
+        units1 = fmap toUnit units
+        allElves (us,_) = Map.size (Map.filter (\u -> team u == Elf) us)
+                          == elfCount
+        (ticks, trimmed) = span allElves (simulate dungeon units1 0)
 
-         if null trimmed -- perfect elf victory
-           then search elfCount atkLo (Just (atk, outcome units2 turns2))
-           else search elfCount atk mbAtkHi
+        (units2, turns) = last ticks
+
 
 outcome :: Map Coord Unit -> Int -> Int
 outcome units turns = turns * sum (fmap hp units)
-
-animate :: Dungeon -> [(Map Coord Unit, Int)] -> IO (Map Coord Unit, Int)
-animate d [(u,t)]    = putStrLn (draw t d u) >> return (u,t)
-animate d ((u,t):xs) = putStrLn (draw t d u) >> animate d xs
-
-draw :: Int -> Dungeon -> Map Coord Unit -> String
-draw turns dungeon units =
-  unlines
-    $ ("After " ++ show turns ++ " rounds:") :
-    [[ case fmap team (Map.lookup (C y x) units) of
-        Just Elf -> 'E'
-        Just Goblin -> 'G'
-        Nothing -> if c == Wall then '#' else '.'
-       | (x,c) <- Vector.toList (Vector.indexed r) ]
-       ++ drawStats y
-    | (y,r) <- Vector.toList (Vector.indexed dungeon)
-    ]
-  where
-    drawStats y = intercalate "," [ drawU u | (C y' x', u) <- Map.toList units, y == y' ]
-    drawU u = ' '
-            : (case team u of Elf -> 'E'; Goblin -> 'G')
-            : "(" ++ show (hp u) ++ ")"
-
 
 parseMap :: Vector (Vector Char) -> Dungeon
 parseMap = fmap (fmap (\x -> if x == '#' then Wall else Open))
@@ -139,67 +114,66 @@ tick dungeon schedule units turns =
             Nothing ->
                tick dungeon schedule units' turns
 
--- | Attack the unit at a coordinate for a given amount of damage
-melee :: Int -> Coord -> Map Coord Unit -> Map Coord Unit
-melee atk pos units = Map.alter aux pos units
-  where
-    aux Nothing = Nothing
-    aux (Just tgt)
-      | hp tgt <= atk = Nothing
-      | otherwise = Just tgt { hp = hp tgt - atk }
+-- | Attack the unit at a coordinate for a given amount of damage.
+-- Once a unit no longer has positive hit points it is removed from
+-- the map of units.
+melee ::
+  Int            {- ^ damage              -} ->
+  Coord          {- ^ target's coordinate -} ->
+  Map Coord Unit {- ^ all units           -} ->
+  Map Coord Unit {- ^ updated units       -}
+melee atk = Map.update $ \tgt ->
+  if hp tgt <= atk
+    then Nothing
+    else Just $! tgt { hp = hp tgt - atk }
 
 -- | Figure out what neighboring unit this unit wants to attack
-target :: Coord -> Unit -> Map Coord Unit -> Maybe Coord
+target ::
+  Coord {- ^ coordinate of attacking unit -} ->
+  Unit -> Map Coord Unit -> Maybe Coord
 target pos unit units
   | null possible = Nothing
   | otherwise     = Just $! minimumBy ordering possible
   where
     ordering = comparing (\i -> (hp (units Map.! i), i))
-    possible = filter isEnemy (cardinal pos)
-    isEnemy loc =
-      case Map.lookup loc units of
-        Just u -> team u /= team unit
-        Nothing -> False
+    possible = filter (isEnemy unit units) (cardinal pos)
 
-layers :: Coord -> (Coord -> Bool) -> [Set Coord]
-layers start valid = go (Set.singleton start)
-  where
-    go seen
-      | null nextLayer = []
-      | otherwise = nextLayer : go (Set.union nextLayer seen)
-      where
-        nextLayer =
-          Set.fromList
-            [ p1 | p  <- Set.toList seen
-                 , p1 <- cardinal p
-                 , valid p1 ]
-          `Set.difference` seen
+-- | Determine if a given coordinate contains an enemy of the given unit.
+isEnemy ::
+  Unit           {- ^ focused unit            -} ->
+  Map Coord Unit {- ^ all units               -} ->
+  Coord          {- ^ possible enemy location -} ->
+  Bool           {- ^ enemy at location       -}
+isEnemy unit units loc =
+  case Map.lookup loc units of
+    Just u  -> team u /= team unit
+    Nothing -> False
 
 -- | Figure out where, if anywhere, this unit wants to move
-route :: Coord -> Unit -> Map Coord Unit -> Dungeon -> Maybe Coord
+route ::
+  Coord          {- ^ unit's position -} ->
+  Unit           {- ^ unit stats      -} ->
+  Map Coord Unit {- ^ all units       -} ->
+  Dungeon        {- ^ dungeon map     -} ->
+  Maybe Coord    {- ^ next location   -}
 route pos unit units dungeon
   | isNear pos = Nothing
-  | otherwise  = search Set.empty (Set.fromList [ (0, start, start) | start <- cardinal pos ])
-
+  | otherwise  = search Set.empty candidates
   where
-    isOpen loc = inDungeon dungeon loc && not (Map.member loc units)
-    isNear = any isEnemy . cardinal
-    isEnemy loc =
-      case Map.lookup loc units of
-            Just u -> team u /= team unit
-            Nothing -> False
+    candidates = Set.fromList [ (0, start, start) | start <- cardinal pos ]
+    isOpen loc = inDungeon dungeon loc && Map.notMember loc units
+    isNear = any (isEnemy unit units) . cardinal
 
     search seen q =
       do ((dist, dest, start), q) <- Set.minView q
          if | Set.member dest seen || not (isOpen dest) -> search seen q
-            | isNear dest -> return start
+            | isNear dest -> Just start
             | otherwise -> search (Set.insert dest seen)
                                  (foldl' (flip Set.insert) q
                                      [ (dist+1, dest, start) | dest <- cardinal dest ])
 
 inDungeon :: Dungeon -> Coord -> Bool
-inDungeon dungeon (C y x) =
-  fromMaybe undefined $
-    do row <- dungeon Vector.!? y
-       col <- row Vector.!? x
-       pure (col == Open)
+inDungeon dungeon (C y x) = col == Open
+  where
+    row = dungeon Vector.! y
+    col = row     Vector.! x
