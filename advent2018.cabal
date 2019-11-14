@@ -19,9 +19,9 @@ library
                        Advent.Queue,
                        Advent.Visualize
 
-  build-depends:       base       >=4.11 && <4.13,
+  build-depends:       base       >=4.11 && <4.14,
                        containers >=0.5  && <0.7,
-                       megaparsec >=7.0  && <8.0,
+                       megaparsec >=8.0  && <8.1,
                        vector      ^>= 0.12,
                        JuicyPixels ^>= 3.3.2,
                        array       ^>= 0.5.3,
